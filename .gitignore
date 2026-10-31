@@ -1,0 +1,71 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Xcode / Swift
+build/
+DerivedData/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.playbook
+timeline.xctimeline
+playground.xcworkspace
+.swiftpm/
+Packages/
+Package.resolved
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+*.xcodeproj/xcuserdata/
+.idea/
+
+# CocoaPods / Carthage (not used yet, keep ignored)
+Pods/
+Carthage/Build/
+
+# Node / bridge
+bridge/node_modules/
+bridge/dist/
+bridge/npm-debug.log*
+bridge/yarn-error.log*
+bridge/.npm
+*.tsbuildinfo
+
+# IAZAP local runtime
+.iazap/
+**/baileys-auth/
+*.sock
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs & coverage
+logs/
+*.log
+coverage/
+.nyc_output/
+
+# Editors
+*.swp
+*~
+.vscode/
+.cursor/
