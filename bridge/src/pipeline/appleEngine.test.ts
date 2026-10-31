@@ -90,3 +90,11 @@ it("retries a generic-only completion automatically, without another incoming me
   assert.equal(await engine.generate(request), "oii");
   assert.equal(fs.readFileSync(counter, "utf8"), "2");
 });
+
+it("uses the explicit name and enforces no emoji even when the engine returns them", async (t) => {
+  const engine = new SelectableReplyEngine({ appleHelperPath: helper(t, { state: "ready", text: "Apple e aviões 😄 🇧🇷" }) });
+  await engine.setModelId(APPLE_MODEL_ID);
+  const systemPrompt = "Seu nome é Mateus, você gosta da Apple e aviões. Você não usa emoji nas conversas! Use emojis quando fizer sentido.";
+  assert.equal(await engine.generate({ ...request, systemPrompt, latestUserText: "Qual é seu nome?" }), "Mateus.");
+  assert.equal(await engine.generate({ ...request, systemPrompt, latestUserText: "Do que você gosta?" }), "Apple e aviões");
+});

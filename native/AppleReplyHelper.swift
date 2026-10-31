@@ -8,6 +8,7 @@ struct Request: Decodable {
     let method: String
     let systemPrompt: String?
     let turns: [Turn]?
+    let latestUserText: String?
 }
 
 @main
@@ -55,10 +56,12 @@ struct AppleReplyHelper {
         let session = LanguageModelSession(model: model, instructions: request.systemPrompt ?? "Responda em português do Brasil, de forma breve e natural.")
         // Each request gets its own session: context cannot leak between WhatsApp chats.
         // Keep a bounded recent history within the on-device model's context window.
-        let history = turns.suffix(12).map { turn in
+        let latest = request.latestUserText ?? turns.last(where: { $0.role == "user" })?.text ?? ""
+        let previous = turns.last?.role == "user" && turns.last?.text == latest ? Array(turns.dropLast()) : turns
+        let history = previous.suffix(12).map { turn in
             "\(turn.role == "assistant" ? "Assistente" : "Contato"): \(String(turn.text.suffix(800)))"
         }.joined(separator: "\n")
-        let prompt = "Responda à última mensagem do contato usando este histórico de conversa:\n\n\(history)"
+        let prompt = "Histórico anterior, apenas como contexto:\n\(history)\n\nMENSAGEM ATUAL DO CONTATO (responda somente a esta):\n\(latest)"
         let response = try await session.respond(to: prompt, options: GenerationOptions(maximumResponseTokens: 192))
         write(["state": "ready", "text": response.content])
     }

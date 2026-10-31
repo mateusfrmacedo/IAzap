@@ -58,7 +58,7 @@ export class AppleReplyEngine implements ReplyEngine {
 
   async generate(request: ReplyRequest): Promise<string> {
     try {
-      const result = await this.call({ method: "generate", systemPrompt: request.systemPrompt, turns: request.turns });
+      const result = await this.call({ method: "generate", systemPrompt: request.systemPrompt, turns: request.turns, latestUserText: request.latestUserText });
       if (result.error || result.state !== "ready") throw new Error(result.error ?? "Apple Intelligence indisponível.");
       const text = result.text?.trim();
       if (!text) throw new Error("Apple Intelligence retornou uma resposta vazia.");

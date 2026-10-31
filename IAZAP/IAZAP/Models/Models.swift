@@ -83,6 +83,7 @@ enum PipelinePhase: String, Codable, Sendable {
 }
 
 struct PipelineStatus: Codable, Hashable, Sendable {
+    var systemPromptHash: String? = nil
     var enabled: Bool
     var engineId: String
     var phase: PipelinePhase

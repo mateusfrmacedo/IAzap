@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import Darwin
+import CryptoKit
 
 /// JSON-RPC client over a Unix domain socket.
 ///
@@ -27,8 +28,11 @@ final class BridgeClient: ObservableObject {
     @Published var bridgeDirectoryPath: String = ""
     @Published var pipelineStatus: PipelineStatus = .placeholder
     @Published var modelStatus: ModelStatus = .placeholder
+    @Published private(set) var isApplyingPrompt = false
+    @Published private(set) var promptApplyError: String?
 
     private weak var store: AppStore?
+    private var promptSubscription: AnyCancellable?
     private var connection: NWUnixConnection?
     private var nextID = 1
     private var pending: [Int: CheckedContinuation<Data, Error>] = [:]
@@ -48,6 +52,37 @@ final class BridgeClient: ObservableObject {
 
     func attach(store: AppStore) {
         self.store = store
+        promptSubscription = store.$systemPromptPT
+            .dropFirst()
+            .removeDuplicates()
+            .debounce(for: .milliseconds(800), scheduler: DispatchQueue.main)
+            .sink { [weak self] prompt in
+                Task { @MainActor in await self?.applySystemPrompt(prompt) }
+            }
+    }
+
+    func isPromptApplied(_ prompt: String) -> Bool {
+        let canonical = prompt.trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping
+        let hash = SHA256.hash(data: Data(canonical.utf8)).map { String(format: "%02x", $0) }.joined()
+        return pipelineStatus.systemPromptHash == hash
+    }
+
+    func applySystemPrompt(_ prompt: String) async {
+        guard isConnected, !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        isApplyingPrompt = true
+        promptApplyError = nil
+        defer { isApplyingPrompt = false }
+        do {
+            pipelineStatus = try await request(method: BridgeRPC.Method.pipelineConfigure,
+                                               params: PromptUpdateParams(systemPrompt: prompt))
+        } catch {
+            promptApplyError = "Não foi possível aplicar o prompt: \(error.localizedDescription)"
+            lastError = promptApplyError
+        }
+    }
+
+    private struct PromptUpdateParams: Encodable {
+        let systemPrompt: String
     }
 
     static func defaultSocketPath() -> String {

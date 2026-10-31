@@ -31,10 +31,30 @@ struct SettingsView: View {
                 TextEditor(text: $store.systemPromptPT)
                     .font(.body)
                     .frame(minHeight: 100)
-                Button("Restaurar prompt padrão") {
-                    store.systemPromptPT = AppStore.defaultSystemPromptPT
+                HStack {
+                    Button("Aplicar prompt agora") {
+                        Task { await bridge.applySystemPrompt(store.systemPromptPT) }
+                    }
+                    .disabled(!bridge.isConnected || bridge.isApplyingPrompt || store.systemPromptPT.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Restaurar prompt padrão") {
+                        store.systemPromptPT = AppStore.defaultSystemPromptPT
+                    }
                 }
-                Text("Define o tom e as instruções das respostas dos dois motores locais.")
+                if store.systemPromptPT.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("Prompt vazio: o último aplicado continua ativo.")
+                        .foregroundStyle(.secondary)
+                } else if bridge.isApplyingPrompt {
+                    ProgressView("Aplicando prompt…")
+                } else if bridge.isPromptApplied(store.systemPromptPT) {
+                    Label("Prompt ativo nas próximas respostas", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                } else if let error = bridge.promptApplyError {
+                    Text(error).foregroundStyle(.red)
+                } else {
+                    Text(bridge.isConnected ? "Salvo no Mac. A aplicação automática ocorre após uma pausa na edição." : "Salvo no Mac. Será aplicado ao conectar.")
+                        .foregroundStyle(.secondary)
+                }
+                Text("As edições são aplicadas automaticamente. O perfil atual tem prioridade sobre respostas antigas; regras explícitas, como não usar emoji, prevalecem sobre o estilo geral.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

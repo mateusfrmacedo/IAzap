@@ -150,6 +150,36 @@ cd bridge
 node --import tsx ../scripts/smoke-conversation.mts
 ```
 
+## Perfil e prompt ativo (0.2.3)
+
+Editar o campo Prompt aplica o texto automaticamente após uma pausa de 800 ms.
+**Aplicar prompt agora** permite ativá-lo imediatamente. A indicação **Prompt ativo
+nas próximas respostas** compara a impressão SHA-256 do texto com a configuração
+que o bridge confirmou; texto salvo apenas no Mac não é apresentado como ativo.
+Se estiver offline, o perfil é sincronizado ao reconectar.
+
+O perfil atual prevalece sobre afirmações anteriores no histórico. Não é necessário
+apagar a conversa para corrigir um nome antigo. Perguntas simples sobre o próprio
+nome são respondidas usando o nome explicitamente configurado, sem o modelo adivinhar
+outro nome ou inventar apelidos. Formatos reconhecidos incluem `Seu nome é Mateus`,
+`Você se chama Mateus` e `Nome: Mateus`; nomes compostos também são aceitos.
+
+Instruções explícitas como `Você não usa emoji nas conversas` prevalecem sobre o
+estilo genérico. Nesse caso, emojis são removidos da resposta antes do envio,
+inclusive se estiverem no histórico ou se o contato pedir para usá-los.
+Outras preferências, como gostos e cor favorita, continuam orientando a geração
+pelo modelo. A mensagem atual fica separada do contexto antigo e sempre é a última
+entrada enviada ao modelo, mesmo quando timestamps do WhatsApp e de envios locais
+colocariam a resposta anterior depois dela.
+
+Testes reais com histórico fictício contraditório, sem enviar mensagens pelo WhatsApp:
+
+```bash
+./scripts/build-apple-helper.sh
+cd bridge
+node --import tsx ../scripts/smoke-persona.mts
+```
+
 ## Status
 
 | Camada | Estado |

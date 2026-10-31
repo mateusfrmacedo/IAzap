@@ -129,6 +129,8 @@ export type PipelinePhase =
 
 export interface PipelineStatus {
   enabled: boolean;
+  /** SHA-256 of the trimmed prompt currently in use (no prompt content). */
+  systemPromptHash?: string;
   engineId: string;
   phase: PipelinePhase;
   debounceMs: number;

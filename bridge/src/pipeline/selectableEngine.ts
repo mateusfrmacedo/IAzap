@@ -1,5 +1,6 @@
 import { AppleReplyEngine, APPLE_MODEL, APPLE_MODEL_ID } from "./appleEngine.js";
 import { ManagedReplyEngine, type EngineMode } from "./mlxEngine.js";
+import { preparePersonaRequest, profileNameReply, forbidsEmoji, removeEmoji } from "./persona.js";
 import { stripServiceOffers } from "./conversationStyle.js";
 import { defaultModelId } from "./models.js";
 import type { ModelStatus } from "../protocol/types.js";
@@ -46,13 +47,20 @@ export class SelectableReplyEngine implements ReplyEngine {
 
   async generate(request: ReplyRequest): Promise<string> {
     const engine = this.modelId === APPLE_MODEL_ID ? this.apple : this.mlx;
-    let reply = stripServiceOffers(await engine.generate(request));
+    const direct = profileNameReply(request);
+    if (direct) return direct;
+    const prepared = preparePersonaRequest(request);
+    const clean = (text: string) => {
+      const conversational = stripServiceOffers(text);
+      return forbidsEmoji(request.systemPrompt) ? removeEmoji(conversational) : conversational;
+    };
+    let reply = clean(await engine.generate(prepared));
     if (reply) return reply;
     // Retry automatically when the entire completion was only a generic service offer.
     // The user should not need to send another message to obtain a real response.
-    reply = stripServiceOffers(await engine.generate({
-      ...request,
-      systemPrompt: request.systemPrompt + "\nA resposta anterior foi apenas uma oferta genérica de ajuda. Responda diretamente à última mensagem. Para um cumprimento, devolva somente um cumprimento curto.",
+    reply = clean(await engine.generate({
+      ...prepared,
+      systemPrompt: prepared.systemPrompt + "\nA resposta anterior foi apenas uma oferta genérica de ajuda. Responda diretamente à última mensagem. Para um cumprimento, devolva somente um cumprimento curto.",
     }));
     if (!reply) throw new Error("O modelo retornou apenas frases genéricas de atendimento. Nenhuma foi enviada.");
     return reply;

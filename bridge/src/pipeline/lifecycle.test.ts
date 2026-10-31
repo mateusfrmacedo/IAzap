@@ -181,3 +181,21 @@ it("responds to a message arriving during an unfinished send", async (t) => {
   await waitFor(() => pipeline.getActivity().filter(a => a.kind === "sent").length === 2);
   assert.equal(pipeline.getStatus().pendingChats, 0);
 });
+
+it("publishes the current prompt fingerprint and discards an obsolete generation after an edit", async (t) => {
+  const h = harness(t);
+  h.receive();
+  await waitFor(() => h.jobs.length === 1);
+  const previousHash = h.pipeline.getStatus().systemPromptHash;
+  h.pipeline.configure({ systemPrompt: "Seu nome é Mateus." });
+  assert.notEqual(h.pipeline.getStatus().systemPromptHash, previousHash);
+  h.jobs[0]!.resolve("Alex");
+  await delay(20);
+  assert.equal(h.sent.length, 0);
+  h.receive("a", "Qual seu nome?");
+  await waitFor(() => h.jobs.length === 2);
+  assert.equal(h.jobs[1]!.req.systemPrompt, "Seu nome é Mateus.");
+  h.jobs[1]!.resolve("Mateus");
+  await waitFor(() => h.sent.length === 1);
+  assert.equal(h.sent[0]!.text, "Mateus");
+});

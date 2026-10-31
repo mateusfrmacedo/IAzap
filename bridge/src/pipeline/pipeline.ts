@@ -5,6 +5,7 @@
  * Anti-loop: never reply to fromMe. Cooldown per chat after a successful send.
  */
 
+import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
 import type {
   InboundMessage,
@@ -86,13 +87,14 @@ export class MessagePipeline extends EventEmitter {
     this.cooldownMs = opts.cooldownMs ?? 0;
     this.contextSize = opts.contextSize ?? 12;
     this.allowGroups = opts.allowGroups ?? false;
-    this.systemPrompt = opts.systemPrompt ?? defaultSystemPrompt();
+    this.systemPrompt = (opts.systemPrompt ?? defaultSystemPrompt()).trim();
     this.activityLimit = opts.activityLimit ?? 80;
   }
 
   getStatus(): PipelineStatus {
     return {
       enabled: this.enabled,
+      systemPromptHash: createHash("sha256").update(this.systemPrompt.normalize("NFC")).digest("hex"),
       engineId: this.engine.id,
       phase: this.phase,
       debounceMs: this.debounceMs,
@@ -140,7 +142,9 @@ export class MessagePipeline extends EventEmitter {
     }
     if (typeof params.allowGroups === "boolean") this.allowGroups = params.allowGroups;
     if (typeof params.systemPrompt === "string" && params.systemPrompt.trim()) {
-      this.systemPrompt = params.systemPrompt.trim();
+      const nextPrompt = params.systemPrompt.trim();
+      if (nextPrompt !== this.systemPrompt) this.clearDebounces();
+      this.systemPrompt = nextPrompt;
     }
     // modelId is handled by ManagedReplyEngine via index.ts / model.configure —
     // pipeline only stores timing/prompt knobs.

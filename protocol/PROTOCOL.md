@@ -329,3 +329,12 @@ reporta erro e não envia respostas de demonstração. Não altera o protocolo v
 indica uma resposta pendente, que será executada automaticamente ao final da espera.
 `pendingChats` inclui chats aguardando um envio anterior. O padrão é cooldown 0 ms
 e debounce 1000 ms. `skipped_cooldown` é mantido no enum por compatibilidade.
+
+## Confirmação do prompt ativo
+
+`pipeline.status`/`pipeline.getStatus` incluem `systemPromptHash`, campo opcional
+compatível com clientes antigos. É SHA-256, em hexadecimal, do prompt ativo sem
+espaços externos e normalizado em Unicode NFC. O conteúdo do prompt não é incluído
+nesse status. Atualizações do prompt são aplicadas ao receber `pipeline.configure`,
+antes de aguardar configurações lentas do modelo, para que uma edição antiga não
+sobrescreva outra mais recente. Alterar o texto invalida gerações ainda não enviadas.

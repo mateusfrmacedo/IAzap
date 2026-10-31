@@ -225,8 +225,10 @@ const rpc = new RpcServer(token, {
   pipelineGetStatus: () => pipeline.getStatus(),
   pipelineSetEnabled: ({ enabled }) => pipeline.setEnabled(enabled),
   pipelineConfigure: async (params) => {
+    // Apply the prompt on arrival: a slow model configuration must not overwrite a newer edit.
+    pipeline.configure(params);
     await applyModelFromPipelineConfig(params);
-    return pipeline.configure(params);
+    return pipeline.getStatus();
   },
   pipelineGetActivity: (limit) => ({ activities: pipeline.getActivity(limit) }),
   pipelineSimulateInbound: async ({ chatId, text, fromMe, isGroup }) => {

@@ -51,6 +51,18 @@ struct BootstrapSmoke {
             print("PASS: saved Apple preference survives initial bridge defaults; native model ready")
         }
         print("PASS: cold bootstrap, managed Node, custom socket, authenticated IPC, stub chats")
+        let editedPrompt = "  Seu nome é Joa\u{0303}o. Você não usa emoji nas conversas!  "
+        store.systemPromptPT = editedPrompt
+        let applyDeadline = Date().addingTimeInterval(8)
+        while !bridge.isPromptApplied(editedPrompt), Date() < applyDeadline {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        guard bridge.isPromptApplied(editedPrompt), bridge.pipelineStatus.cooldownMs == 0,
+              bridge.pipelineStatus.enabled == expectsEnabled else {
+            print("FAIL: prompt edit was not automatically applied or changed other settings")
+            bridge.disconnect(); exit(1)
+        }
+        print("PASS: prompt edits auto-apply with verified active fingerprint, preserving other settings")
         let testHang = ProcessInfo.processInfo.environment["IAZAP_TEST_HANG"] == "1"
         let testRecovery = ProcessInfo.processInfo.environment["IAZAP_TEST_RECOVERY"] == "1" || testHang
         if testRecovery {
@@ -74,6 +86,9 @@ struct BootstrapSmoke {
                 guard bridge.modelStatus.modelId == "apple-intelligence", store.preferredModelId == "apple-intelligence" else {
                     print("FAIL: recovery lost selected model"); bridge.disconnect(); exit(1)
                 }
+            }
+            guard bridge.isPromptApplied(editedPrompt) else {
+                print("FAIL: recovery lost edited prompt"); bridge.disconnect(); exit(1)
             }
             print(testHang ? "PASS: recovered IPC and replaced an unresponsive managed bridge" : "PASS: automatically recovered IPC and restarted the crashed managed bridge")
         }
