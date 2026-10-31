@@ -23,7 +23,7 @@ struct SettingsView: View {
                 TextEditor(text: $store.systemPromptPT)
                     .font(.body)
                     .frame(minHeight: 100)
-                Text("Usado na Fase 3 (MLX). Editável já na Fase 1.")
+                Text("Usado na Fase 3 (MLX). Editável já agora.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

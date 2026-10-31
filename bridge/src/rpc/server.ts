@@ -4,6 +4,7 @@ import { EventEmitter } from "node:events";
 import type {
   Chat,
   ChatsSetAutoReplyParams,
+  ChatsSyncSelectionParams,
   MessagesSendParams,
   SessionHelloParams,
   SessionStatus,
@@ -43,7 +44,10 @@ export type MethodHandlers = {
   getStatus: () => SessionStatus;
   listChats: () => Chat[];
   setAutoReply: (params: ChatsSetAutoReplyParams) => { ok: true; chatId: string; enabled: boolean };
+  syncSelection: (params: ChatsSyncSelectionParams) => { ok: true; chatIds: string[] };
   sendMessage: (params: MessagesSendParams) => Promise<{ messageId: string }>;
+  reconnect: () => Promise<SessionStatus>;
+  logout: () => Promise<SessionStatus>;
 };
 
 export class RpcServer extends EventEmitter {
@@ -140,7 +144,7 @@ export class RpcServer extends EventEmitter {
       return;
     }
 
-    // Notifications from client are ignored in Phase 1.
+    // Notifications from client are ignored.
     if (req.id === undefined || req.id === null) {
       return;
     }
@@ -178,6 +182,10 @@ export class RpcServer extends EventEmitter {
     switch (method) {
       case "session.status":
         return this.handlers.getStatus();
+      case "session.reconnect":
+        return await this.handlers.reconnect();
+      case "session.logout":
+        return await this.handlers.logout();
       case "chats.list":
         return { chats: this.handlers.listChats() };
       case "chats.setAutoReply": {
@@ -186,6 +194,13 @@ export class RpcServer extends EventEmitter {
           throw rpcError(-32602, "Invalid params");
         }
         return this.handlers.setAutoReply(p);
+      }
+      case "chats.syncSelection": {
+        const p = params as ChatsSyncSelectionParams;
+        if (!p || !Array.isArray(p.chatIds) || p.chatIds.some((id) => typeof id !== "string")) {
+          throw rpcError(-32602, "Invalid params");
+        }
+        return this.handlers.syncSelection(p);
       }
       case "messages.send": {
         const p = params as MessagesSendParams;

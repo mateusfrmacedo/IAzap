@@ -1,9 +1,8 @@
 /**
- * Baileys WhatsApp session scaffolding (Phase 1).
+ * Baileys WhatsApp session (Phase 2).
  *
- * Real multi-device connect is wired; auth files land under authDir.
- * Auto-reply pipeline / MLX are out of scope here — we only emit QR,
- * session status, chats, and inbound text for the Swift UI.
+ * QR pairing, reconnect/logout, chat list + auto-reply mirror.
+ * Auto-reply pipeline / MLX remain out of scope.
  */
 
 import makeWASocket, {
@@ -13,9 +12,12 @@ import makeWASocket, {
   useMultiFileAuthState,
   type WASocket,
   type WAMessage,
+  type Contact,
 } from "@whiskeysockets/baileys";
 import pino from "pino";
 import { EventEmitter } from "node:events";
+import fs from "node:fs";
+import path from "node:path";
 import type { Chat, InboundMessage, SessionMe, SessionStatus } from "../protocol/types.js";
 
 const log = pino({ level: process.env.IAZAP_LOG_LEVEL ?? "info" });
@@ -24,6 +26,7 @@ export type WhatsAppSessionEvents = {
   status: [SessionStatus];
   qr: [string | null];
   inbound: [InboundMessage];
+  chats: [Chat[]];
 };
 
 export class WhatsAppSession extends EventEmitter {
@@ -34,9 +37,14 @@ export class WhatsAppSession extends EventEmitter {
     me: null,
     lastError: null,
   };
-  /** JID → auto-reply flag (mirrored from app in Phase 1). */
+  /** JID → auto-reply flag (app is source of truth; mirrored here for pipeline later). */
   private autoReply = new Map<string, boolean>();
   private chatCache = new Map<string, Chat>();
+  private contactNames = new Map<string, string>();
+  /** When true, connection.close must not soft-reconnect. */
+  private intentionalStop = false;
+  private starting = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(authDir: string) {
     super();
@@ -44,7 +52,7 @@ export class WhatsAppSession extends EventEmitter {
   }
 
   getStatus(): SessionStatus {
-    return { ...this.status };
+    return { ...this.status, me: this.status.me ? { ...this.status.me } : null };
   }
 
   listChats(): Chat[] {
@@ -60,7 +68,27 @@ export class WhatsAppSession extends EventEmitter {
     const existing = this.chatCache.get(chatId);
     if (existing) {
       this.chatCache.set(chatId, { ...existing, autoReply: enabled });
+      this.emitChats();
     }
+  }
+
+  /** Replace the mirrored selection set (enabled JIDs only). */
+  syncSelection(chatIds: string[]): void {
+    this.autoReply.clear();
+    for (const id of chatIds) {
+      this.autoReply.set(id, true);
+    }
+    for (const [id, chat] of this.chatCache) {
+      const enabled = this.autoReply.get(id) ?? false;
+      if (chat.autoReply !== enabled) {
+        this.chatCache.set(id, { ...chat, autoReply: enabled });
+      }
+    }
+    this.emitChats();
+  }
+
+  selectedChatIds(): string[] {
+    return [...this.autoReply.entries()].filter(([, v]) => v).map(([id]) => id);
   }
 
   async sendText(chatId: string, text: string): Promise<{ messageId: string }> {
@@ -75,6 +103,66 @@ export class WhatsAppSession extends EventEmitter {
   }
 
   async start(): Promise<void> {
+    if (this.starting) return;
+    this.starting = true;
+    this.intentionalStop = false;
+    this.clearReconnectTimer();
+
+    try {
+      await this.openSocket();
+    } finally {
+      this.starting = false;
+    }
+  }
+
+  /** Soft reconnect without wiping auth (e.g. after disconnect). */
+  async reconnect(): Promise<SessionStatus> {
+    this.intentionalStop = true;
+    this.clearReconnectTimer();
+    await this.endSocket();
+    this.intentionalStop = false;
+    await this.start();
+    return this.getStatus();
+  }
+
+  /**
+   * Logout from WhatsApp multi-device and wipe local auth files.
+   * Next `start`/`reconnect` will emit a fresh QR.
+   */
+  async logout(): Promise<SessionStatus> {
+    this.intentionalStop = true;
+    this.clearReconnectTimer();
+    try {
+      if (this.sock) {
+        await this.sock.logout();
+      }
+    } catch (e) {
+      log.warn({ err: e }, "logout call failed; wiping auth anyway");
+    }
+    await this.endSocket();
+    wipeAuthDir(this.authDir);
+    this.chatCache.clear();
+    this.contactNames.clear();
+    this.setStatus({
+      state: "logged_out",
+      me: null,
+      lastError: null,
+    });
+    this.emit("qr", null);
+    this.emitChats();
+    return this.getStatus();
+  }
+
+  async stop(): Promise<void> {
+    this.intentionalStop = true;
+    this.clearReconnectTimer();
+    await this.endSocket();
+    this.setStatus({ state: "disconnected", me: null, lastError: null });
+    this.emit("qr", null);
+  }
+
+  private async openSocket(): Promise<void> {
+    fs.mkdirSync(this.authDir, { recursive: true });
     this.setStatus({ state: "connecting", me: null, lastError: null });
 
     const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
@@ -90,6 +178,7 @@ export class WhatsAppSession extends EventEmitter {
       printQRInTerminal: false,
       syncFullHistory: false,
       markOnlineOnConnect: false,
+      getMessage: async () => undefined,
     });
 
     this.sock.ev.on("creds.update", saveCreds);
@@ -106,6 +195,7 @@ export class WhatsAppSession extends EventEmitter {
         const me = this.resolveMe();
         this.setStatus({ state: "connected", me, lastError: null });
         this.emit("qr", null);
+        this.emitChats();
       }
 
       if (connection === "close") {
@@ -115,51 +205,65 @@ export class WhatsAppSession extends EventEmitter {
         const statusCode = err?.output?.statusCode;
         const loggedOut = statusCode === DisconnectReason.loggedOut;
 
+        if (this.intentionalStop) {
+          return;
+        }
+
         if (loggedOut) {
           this.setStatus({
             state: "logged_out",
             me: null,
-            lastError: "Logged out — scan QR again",
+            lastError: "Desconectado — escaneie o QR novamente",
           });
           this.emit("qr", null);
+          wipeAuthDir(this.authDir);
           return;
         }
 
         this.setStatus({
           state: "disconnected",
           me: null,
-          lastError: err?.message ?? "Connection closed",
+          lastError: err?.message ?? "Conexão encerrada",
         });
-        // Soft reconnect for transient closes (Phase 1 scaffolding).
-        setTimeout(() => {
-          void this.start().catch((e) => {
-            this.setStatus({
-              state: "error",
-              me: null,
-              lastError: e instanceof Error ? e.message : String(e),
-            });
-          });
-        }, 2_000);
+        this.scheduleReconnect();
       }
     });
 
     this.sock.ev.on("chats.upsert", (chats) => {
       for (const c of chats) {
         this.upsertChat(c.id, {
-          name: c.name ?? c.id.split("@")[0] ?? c.id,
+          name: this.resolveChatName(c.id, c.name),
           isGroup: c.id.endsWith("@g.us"),
+          lastMessageAt: c.conversationTimestamp
+            ? Number(c.conversationTimestamp) * 1000
+            : undefined,
         });
       }
+      this.emitChats();
     });
 
     this.sock.ev.on("chats.update", (updates) => {
+      let changed = false;
       for (const u of updates) {
         if (!u.id) continue;
         this.upsertChat(u.id, {
-          name: u.name ?? undefined,
+          name: u.name ? this.resolveChatName(u.id, u.name) : undefined,
           isGroup: u.id.endsWith("@g.us"),
+          lastMessageAt: u.conversationTimestamp
+            ? Number(u.conversationTimestamp) * 1000
+            : undefined,
         });
+        changed = true;
       }
+      if (changed) this.emitChats();
+    });
+
+    this.sock.ev.on("contacts.upsert", (contacts) => {
+      this.applyContacts(contacts);
+    });
+
+    this.sock.ev.on("contacts.update", (updates) => {
+      this.applyContacts(updates as Contact[]);
     });
 
     this.sock.ev.on("messages.upsert", ({ messages, type }) => {
@@ -170,14 +274,66 @@ export class WhatsAppSession extends EventEmitter {
     });
   }
 
-  async stop(): Promise<void> {
+  private applyContacts(contacts: Contact[]): void {
+    let changed = false;
+    for (const c of contacts) {
+      if (!c.id) continue;
+      const name = c.notify ?? c.name ?? c.verifiedName;
+      if (!name) continue;
+      this.contactNames.set(c.id, name);
+      const chat = this.chatCache.get(c.id);
+      if (chat && chat.name !== name && (chat.name === c.id.split("@")[0] || chat.name === c.id)) {
+        this.chatCache.set(c.id, { ...chat, name });
+        changed = true;
+      } else if (chat && name && chat.name !== name) {
+        // Prefer contact notify over bare id-derived names
+        if (!chat.name || chat.name === c.id.split("@")[0]) {
+          this.chatCache.set(c.id, { ...chat, name });
+          changed = true;
+        }
+      }
+    }
+    if (changed) this.emitChats();
+  }
+
+  private resolveChatName(id: string, hint?: string | null): string {
+    if (hint && hint.trim()) return hint;
+    const fromContact = this.contactNames.get(id);
+    if (fromContact) return fromContact;
+    return id.split("@")[0] ?? id;
+  }
+
+  private scheduleReconnect(): void {
+    this.clearReconnectTimer();
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.intentionalStop) return;
+      void this.start().catch((e) => {
+        this.setStatus({
+          state: "error",
+          me: null,
+          lastError: e instanceof Error ? e.message : String(e),
+        });
+      });
+    }, 2_000);
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
+  private async endSocket(): Promise<void> {
+    const sock = this.sock;
+    this.sock = null;
+    if (!sock) return;
     try {
-      this.sock?.end(undefined);
+      sock.end(undefined);
     } catch {
       /* ignore */
     }
-    this.sock = null;
-    this.setStatus({ state: "disconnected", me: null, lastError: null });
   }
 
   private resolveMe(): SessionMe | null {
@@ -194,14 +350,23 @@ export class WhatsAppSession extends EventEmitter {
     this.emit("status", this.getStatus());
   }
 
+  private emitChats(): void {
+    this.emit("chats", this.listChats());
+  }
+
   private upsertChat(
     id: string,
-    partial: { name?: string; isGroup?: boolean; lastMessagePreview?: string; lastMessageAt?: number },
+    partial: {
+      name?: string;
+      isGroup?: boolean;
+      lastMessagePreview?: string;
+      lastMessageAt?: number;
+    },
   ): void {
     const prev = this.chatCache.get(id);
     const chat: Chat = {
       id,
-      name: partial.name ?? prev?.name ?? id.split("@")[0] ?? id,
+      name: partial.name ?? prev?.name ?? this.resolveChatName(id),
       isGroup: partial.isGroup ?? prev?.isGroup ?? id.endsWith("@g.us"),
       autoReply: this.autoReply.get(id) ?? prev?.autoReply ?? false,
       lastMessagePreview: partial.lastMessagePreview ?? prev?.lastMessagePreview,
@@ -218,14 +383,23 @@ export class WhatsAppSession extends EventEmitter {
     if (!text) return;
 
     const fromMe = Boolean(msg.key.fromMe);
-    const timestamp = Number(msg.messageTimestamp ?? Date.now()) * (String(msg.messageTimestamp).length < 13 ? 1000 : 1);
+    const rawTs = msg.messageTimestamp;
+    const timestamp =
+      Number(rawTs ?? Date.now()) * (String(rawTs ?? "").length < 13 ? 1000 : 1);
     const messageId = msg.key.id ?? `unknown-${timestamp}`;
 
+    const pushName = msg.pushName;
+    if (pushName && !fromMe) {
+      this.contactNames.set(chatId, pushName);
+    }
+
     this.upsertChat(chatId, {
+      name: this.resolveChatName(chatId, pushName),
       isGroup: chatId.endsWith("@g.us"),
       lastMessagePreview: text.slice(0, 120),
       lastMessageAt: timestamp,
     });
+    this.emitChats();
 
     const inbound: InboundMessage = {
       chatId,
@@ -235,6 +409,17 @@ export class WhatsAppSession extends EventEmitter {
       timestamp,
     };
     this.emit("inbound", inbound);
+  }
+}
+
+function wipeAuthDir(authDir: string): void {
+  try {
+    if (!fs.existsSync(authDir)) return;
+    for (const entry of fs.readdirSync(authDir)) {
+      fs.rmSync(path.join(authDir, entry), { recursive: true, force: true });
+    }
+  } catch (e) {
+    log.warn({ err: e, authDir }, "failed to wipe auth dir");
   }
 }
 

@@ -4,17 +4,17 @@ App nativo **macOS** (Apple Silicon) que conecta sua conta WhatsApp pessoal via 
 
 > **Aviso:** o bridge usa cliente WhatsApp Web não oficial. Isso pode violar os Termos do WhatsApp/Meta e há risco de banimento da conta. Uso sob sua responsabilidade.
 
-## Status (Phase 1 scaffold)
+## Status (Phase 2 — pareamento + chats)
 
 | Camada | Estado |
 |---|---|
-| SwiftUI macOS (onboarding/QR stub, chats + toggles, status, settings) | ✅ skeleton |
-| Node bridge + Baileys + JSON-RPC (Unix socket) | ✅ scaffolding |
-| Protocolo compartilhado (`protocol/`) | ✅ v1 |
-| Pipeline auto-send | ❌ ainda não |
-| Inferência MLX | ❌ ainda não (Fase 3) |
+| SwiftUI macOS (QR imagem, chats + toggles, status, reconnect/logout) | ✅ Phase 2 |
+| Node bridge + Baileys + JSON-RPC (Unix socket) | ✅ real pairing |
+| Protocolo compartilhado (`protocol/`) | ✅ v1 (+ reconnect/logout/sync) |
+| Pipeline auto-send | ❌ ainda não (Fase 3) |
+| Inferência MLX | ❌ ainda não (Fase 4) |
 
-Arquitetura completa: ver o plano do projeto (docs internos) — resumo: **SwiftUI + sidecar Node/Baileys + MLX on-device**.
+Arquitetura: **SwiftUI + sidecar Node/Baileys + MLX on-device** (MLX depois).
 
 ## Layout do repositório
 
@@ -33,9 +33,7 @@ protocol/              # JSON-RPC docs + types (TS; espelhado em Swift)
 - **Xcode 15+** com toolchain Swift
 - **Node.js 20+** (LTS)
 
-MLX entra depois; não é necessário para rodar o scaffold da Phase 1.
-
-## Como rodar no Mac
+## Como rodar Phase 2 no Mac
 
 ### 1. Bridge (Node)
 
@@ -43,15 +41,22 @@ MLX entra depois; não é necessário para rodar o scaffold da Phase 1.
 cd bridge
 npm install
 
+# Sessão Baileys real — emite qr.update; escaneie no telefone
+IAZAP_TOKEN=dev-token-change-me npm run dev
+
 # Smoke IPC sem falar com WhatsApp (QR stub + chats de exemplo)
 IAZAP_STUB_WA=1 IAZAP_TOKEN=dev-token-change-me npm run dev
-
-# Ou sessão Baileys real (emite qr.update; escaneie no telefone)
-IAZAP_TOKEN=dev-token-change-me npm run dev
 ```
 
-Socket padrão: `$TMPDIR/iazap-bridge.sock`  
-Auth Baileys: `~/.iazap/baileys-auth`  
+| Env | Default |
+|---|---|
+| `IAZAP_SOCKET` | `$TMPDIR/iazap-bridge.sock` |
+| `IAZAP_TOKEN` | `dev-token-change-me` |
+| `IAZAP_AUTH` | `~/Library/Application Support/IAZAP/baileys-auth` |
+| `IAZAP_STUB_WA` | unset (Baileys real) |
+
+**Credenciais WhatsApp** ficam só nessa pasta local (`IAZAP_AUTH`). `session.logout` no app apaga o conteúdo. Não sincronize essa pasta (iCloud/backup) se quiser isolar a sessão.
+
 Detalhes: [`bridge/README.md`](bridge/README.md) · protocolo: [`protocol/PROTOCOL.md`](protocol/PROTOCOL.md)
 
 ### 2. App (Xcode)
@@ -60,16 +65,15 @@ Detalhes: [`bridge/README.md`](bridge/README.md) · protocolo: [`protocol/PROTOC
 open IAZAP/IAZAP.xcodeproj
 ```
 
-1. Selecione o scheme **IAZAP** (destino: My Mac).
+1. Scheme **IAZAP** → destino **My Mac**.
 2. Run (⌘R).
-3. Em **Status** → *Conectar ao socket padrão* (com o bridge já rodando), ou informe a pasta `…/bridge` e use *Iniciar bridge (stub WA)*.
+3. Em **Status**:
+   - Com bridge já em `npm run dev`: *Conectar ao socket padrão* (token `dev-token-change-me`).
+   - Ou informe a pasta `…/bridge` e use *Iniciar bridge (WhatsApp real)* (o app mint o token e aponta `IAZAP_AUTH` para Application Support).
+4. Em **Parear**: escaneie o QR (imagem gerada via CoreImage a partir do payload Baileys).
+5. Em **Chats**: lista real após `connected`; toggles de auto-reply persistem em UserDefaults e são espelhados no bridge (`chats.setAutoReply` / `chats.syncSelection`).
 
-Telas Phase 1:
-
-- **Parear** — placeholder do QR (`qr.update`)
-- **Chats** — lista + toggles de auto-reply (persistidos no app)
-- **Status** — IPC / sessão WA / placeholder MLX
-- **Ajustes** — prompt PT-BR e tamanho de contexto (usados na Fase 3)
+Estados de sessão na UI: **desconectado / aguardando QR / conectando / conectado / deslogado / erro**, com **Reconectar** e **Desconectar conta (logout)**.
 
 ## IPC em uma frase
 
@@ -77,10 +81,10 @@ JSON-RPC 2.0, newline-delimited, sobre **Unix domain socket**. O app autentica c
 
 ## Roadmap curto
 
-1. **Phase 1 (este PR)** — scaffold UI + bridge + protocolo  
-2. **Phase 2** — pareamento estável, lista real, receive/display texto  
+1. ~~Phase 1 — scaffold UI + bridge + protocolo~~  
+2. **Phase 2 (este PR)** — pareamento QR real, lista de chats, toggles, reconnect/logout  
 3. **Phase 3** — pipeline (debounce, filtro, anti-loop) + send  
-4. **Phase 4** — MLX (Qwen2.5 3B/7B 4-bit) + polimento
+4. **Phase 4** — MLX (Qwen2.5 3B/7B 4-bit) + polimento  
 
 ## Licença / uso
 

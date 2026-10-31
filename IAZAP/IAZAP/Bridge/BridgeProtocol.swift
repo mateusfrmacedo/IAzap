@@ -1,6 +1,6 @@
 import Foundation
 
-/// Swift mirror of `protocol/types.ts` / PROTOCOL.md (protocolVersion 1).
+/// Swift mirror of `protocol/types.ts` / PROTOCOL.md (protocolVersion 1, Phase 2 methods).
 enum BridgeRPC {
     static let protocolVersion = 1
     static let clientName = "iazap-macos"
@@ -8,13 +8,17 @@ enum BridgeRPC {
     enum Method {
         static let sessionHello = "session.hello"
         static let sessionStatus = "session.status"
+        static let sessionReconnect = "session.reconnect"
+        static let sessionLogout = "session.logout"
         static let chatsList = "chats.list"
         static let chatsSetAutoReply = "chats.setAutoReply"
+        static let chatsSyncSelection = "chats.syncSelection"
         static let messagesSend = "messages.send"
 
         // Notifications (bridge → app)
         static let qrUpdate = "qr.update"
         static let messagesInbound = "messages.inbound"
+        static let chatsUpdated = "chats.updated"
     }
 }
 
@@ -46,7 +50,6 @@ struct JSONRPCErrorBody: Decodable, Error {
 struct JSONRPCNotification: Decodable {
     let jsonrpc: String
     let method: String
-    // params decoded per-method by callers
 }
 
 struct SessionHelloParams: Encodable {
@@ -68,6 +71,15 @@ struct SetAutoReplyResult: Decodable {
     let ok: Bool
     let chatId: String
     let enabled: Bool
+}
+
+struct SyncSelectionParams: Encodable {
+    let chatIds: [String]
+}
+
+struct SyncSelectionResult: Decodable {
+    let ok: Bool
+    let chatIds: [String]
 }
 
 struct MessagesSendParams: Encodable {

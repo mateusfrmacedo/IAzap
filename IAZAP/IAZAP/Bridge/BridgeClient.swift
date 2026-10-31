@@ -1,12 +1,12 @@
 import Foundation
 import Combine
 
-/// JSON-RPC client over a Unix domain socket (Phase 1 stub + real connect path).
+/// JSON-RPC client over a Unix domain socket (Phase 2).
 ///
-/// Launch model (later polished in pipeline phase):
+/// Launch model:
 /// 1. Mint token, pick socket path under TMPDIR
-/// 2. Spawn `node` bridge with IAZAP_SOCKET / IAZAP_TOKEN
-/// 3. Connect, call `session.hello`, subscribe to notifications
+/// 2. Spawn `node` bridge with IAZAP_SOCKET / IAZAP_TOKEN / IAZAP_AUTH
+/// 3. Connect, call `session.hello`, sync selection, subscribe to notifications
 @MainActor
 final class BridgeClient: ObservableObject {
     @Published var isConnected = false
@@ -15,12 +15,12 @@ final class BridgeClient: ObservableObject {
     @Published var chats: [ChatSummary] = []
     @Published var lastError: String?
     @Published var bridgeProcessRunning = false
+    @Published var authDirectoryPath: String = BridgeClient.defaultAuthDirectory().path
 
     private weak var store: AppStore?
     private var connection: NWUnixConnection?
     private var nextID = 1
     private var pending: [Int: CheckedContinuation<Data, Error>] = [:]
-    private var lineBuffer = Data()
     private var sessionToken = "dev-token-change-me"
     private var socketPath: String = BridgeClient.defaultSocketPath()
     private var bridgeProcess: Process?
@@ -34,9 +34,16 @@ final class BridgeClient: ObservableObject {
         return (tmp as NSString).appendingPathComponent("iazap-bridge.sock")
     }
 
+    /// Baileys multi-file auth under Application Support (local-only).
+    static func defaultAuthDirectory() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
+        return base.appendingPathComponent("IAZAP/baileys-auth", isDirectory: true)
+    }
+
     // MARK: - Public API
 
-    /// Connect to an already-running bridge (typical during Phase 1 manual `npm run dev`).
+    /// Connect to an already-running bridge (typical during `npm run dev`).
     func connect(socketPath: String? = nil, token: String? = nil) async {
         if let socketPath { self.socketPath = socketPath }
         if let token { self.sessionToken = token }
@@ -71,6 +78,7 @@ final class BridgeClient: ObservableObject {
             )
             let _: HelloResult = try await request(method: BridgeRPC.Method.sessionHello, params: hello)
             sessionStatus = try await request(method: BridgeRPC.Method.sessionStatus, params: EmptyParams())
+            await syncSelectionToBridge()
             await refreshChats()
         } catch {
             lastError = error.localizedDescription
@@ -92,6 +100,10 @@ final class BridgeClient: ObservableObject {
         sessionToken = UUID().uuidString
         socketPath = BridgeClient.defaultSocketPath()
 
+        let authURL = BridgeClient.defaultAuthDirectory()
+        try? FileManager.default.createDirectory(at: authURL, withIntermediateDirectories: true)
+        authDirectoryPath = authURL.path
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["npm", "run", "dev"]
@@ -100,8 +112,11 @@ final class BridgeClient: ObservableObject {
         var env = ProcessInfo.processInfo.environment
         env["IAZAP_SOCKET"] = socketPath
         env["IAZAP_TOKEN"] = sessionToken
+        env["IAZAP_AUTH"] = authURL.path
         if stubWhatsApp {
             env["IAZAP_STUB_WA"] = "1"
+        } else {
+            env.removeValue(forKey: "IAZAP_STUB_WA")
         }
         process.environment = env
 
@@ -114,10 +129,10 @@ final class BridgeClient: ObservableObject {
             bridgeProcess = process
             bridgeProcessRunning = true
             // Give tsx a moment to bind the socket
-            try await Task.sleep(nanoseconds: 1_200_000_000)
+            try await Task.sleep(nanoseconds: 1_500_000_000)
             await connect(socketPath: socketPath, token: sessionToken)
         } catch {
-            lastError = "Failed to launch bridge: \(error.localizedDescription)"
+            lastError = "Falha ao iniciar bridge: \(error.localizedDescription)"
             bridgeProcessRunning = false
         }
     }
@@ -125,15 +140,7 @@ final class BridgeClient: ObservableObject {
     func refreshChats() async {
         do {
             let result: ChatsListResult = try await request(method: BridgeRPC.Method.chatsList, params: EmptyParams())
-            var merged = result.chats
-            if let store {
-                merged = merged.map { chat in
-                    var c = chat
-                    c.autoReply = store.isAutoReplyEnabled(for: chat.id)
-                    return c
-                }
-            }
-            chats = merged
+            applyChats(result.chats)
         } catch {
             lastError = error.localizedDescription
         }
@@ -154,6 +161,50 @@ final class BridgeClient: ObservableObject {
         }
     }
 
+    /// Push UserDefaults selection to the bridge so the pipeline can filter later.
+    func syncSelectionToBridge() async {
+        guard let store, isConnected || connection != nil else { return }
+        let ids = Array(store.selectedChatIDs).sorted()
+        do {
+            let _: SyncSelectionResult = try await request(
+                method: BridgeRPC.Method.chatsSyncSelection,
+                params: SyncSelectionParams(chatIds: ids)
+            )
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func reconnectSession() async {
+        do {
+            sessionStatus = try await request(method: BridgeRPC.Method.sessionReconnect, params: EmptyParams())
+            if sessionStatus.state == .connected {
+                qrPayload = nil
+                await refreshChats()
+            }
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func logoutSession() async {
+        do {
+            sessionStatus = try await request(method: BridgeRPC.Method.sessionLogout, params: EmptyParams())
+            qrPayload = nil
+            chats = []
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func fetchStatus() async {
+        do {
+            sessionStatus = try await request(method: BridgeRPC.Method.sessionStatus, params: EmptyParams())
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
     func sendMessage(chatID: String, text: String) async throws -> String {
         let result: MessagesSendResult = try await request(
             method: BridgeRPC.Method.messagesSend,
@@ -168,6 +219,18 @@ final class BridgeClient: ObservableObject {
     private struct HelloResult: Decodable {
         let ok: Bool
         let protocolVersion: Int
+    }
+
+    private func applyChats(_ incoming: [ChatSummary]) {
+        var merged = incoming
+        if let store {
+            merged = merged.map { chat in
+                var c = chat
+                c.autoReply = store.isAutoReplyEnabled(for: chat.id)
+                return c
+            }
+        }
+        chats = merged
     }
 
     private func request<T: Decodable>(method: String, params: Encodable) async throws -> T {
@@ -195,7 +258,6 @@ final class BridgeClient: ObservableObject {
     }
 
     private func handleIncomingLine(_ line: Data) {
-        // Notification vs response: presence of "id"
         guard let obj = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { return }
 
         if let id = obj["id"] as? Int, let cont = pending.removeValue(forKey: id) {
@@ -222,6 +284,14 @@ final class BridgeClient: ObservableObject {
         case BridgeRPC.Method.sessionStatus:
             if let p = try? JSONDecoder().decode(SessionStatus.self, from: paramsData) {
                 sessionStatus = p
+                if p.state == .connected {
+                    qrPayload = nil
+                    Task { await refreshChats() }
+                }
+            }
+        case BridgeRPC.Method.chatsUpdated:
+            if let p = try? JSONDecoder().decode(ChatsListResult.self, from: paramsData) {
+                applyChats(p.chats)
             }
         case BridgeRPC.Method.messagesInbound:
             if let p = try? JSONDecoder().decode(InboundMessage.self, from: paramsData) {
@@ -245,8 +315,8 @@ enum BridgeClientError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notConnected: return "Bridge IPC not connected"
-        case .emptyResult: return "Empty JSON-RPC result"
+        case .notConnected: return "Bridge IPC não conectado"
+        case .emptyResult: return "Resultado JSON-RPC vazio"
         }
     }
 }

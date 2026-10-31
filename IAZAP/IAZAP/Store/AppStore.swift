@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 /// Local selection store for chats enabled for auto-reply.
-/// Phase 1: UserDefaults. Later phases may sync into SQLite + pipeline.
+/// Source of truth: UserDefaults. Mirrored to the bridge via `chats.syncSelection` / `chats.setAutoReply`.
 @MainActor
 final class AppStore: ObservableObject {
     private static let selectedKey = "iazap.selectedChatIDs"
@@ -21,7 +21,7 @@ final class AppStore: ObservableObject {
         didSet { UserDefaults.standard.set(contextMessageCount, forKey: Self.contextSizeKey) }
     }
 
-    /// Recent inbound messages for UI smoke (not persisted in Phase 1).
+    /// Recent inbound messages for UI (not persisted yet).
     @Published var recentInbound: [InboundMessage] = []
 
     init() {

@@ -19,7 +19,7 @@ npm install
 ## Run (dev)
 
 ```bash
-# Full Baileys connect (prints QR via RPC notification `qr.update`)
+# Full Baileys connect (QR via RPC notification `qr.update`)
 IAZAP_TOKEN=dev-token-change-me npm run dev
 
 # IPC-only smoke without contacting WhatsApp
@@ -32,8 +32,10 @@ Defaults:
 |---|---|
 | `IAZAP_SOCKET` | `$TMPDIR/iazap-bridge.sock` |
 | `IAZAP_TOKEN` | `dev-token-change-me` |
-| `IAZAP_AUTH` | `~/.iazap/baileys-auth` |
+| `IAZAP_AUTH` | `~/Library/Application Support/IAZAP/baileys-auth` (macOS) |
 | `IAZAP_STUB_WA` | unset (real Baileys) |
+
+Auth files are **local only**. Logout (`session.logout`) wipes that directory.
 
 ## Scripts
 
@@ -44,9 +46,12 @@ Defaults:
 | `npm start` | Run compiled `dist/index.js` |
 | `npm run typecheck` | `tsc --noEmit` |
 
-## Phase 1 scope
+## Phase 2 scope
 
-- JSON-RPC server + Baileys connect / QR / chat list / inbound text / send scaffolding
+- Real QR pairing, session status, reconnect/logout
+- Chat list + `chats.updated` notifications
+- Auto-reply selection mirror (`chats.setAutoReply`, `chats.syncSelection`)
+- Inbound text notifications
 - **Not** auto-reply pipeline or MLX
 
-The Swift app is expected to spawn this process with a fresh token and socket path.
+The Swift app is expected to spawn this process with a fresh token, socket path, and Application Support auth dir.

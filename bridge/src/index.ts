@@ -1,10 +1,11 @@
 /**
- * IAZAP WhatsApp bridge entrypoint.
+ * IAZAP WhatsApp bridge entrypoint (Phase 2).
  *
  * Env:
  *   IAZAP_SOCKET  — Unix socket path (default: $TMPDIR/iazap-bridge.sock)
  *   IAZAP_TOKEN   — session token required by session.hello
  *   IAZAP_AUTH    — Baileys multi-file auth directory
+ *                   (default: ~/Library/Application Support/IAZAP/baileys-auth on macOS)
  *   IAZAP_STUB_WA — if "1", skip real Baileys connect (UI/IPC smoke only)
  */
 
@@ -15,11 +16,23 @@ import { RpcServer } from "./rpc/server.js";
 import { WhatsAppSession } from "./whatsapp/session.js";
 import type { Chat, SessionStatus } from "./protocol/types.js";
 
+function defaultAuthDir(): string {
+  if (process.platform === "darwin") {
+    return path.join(
+      os.homedir(),
+      "Library",
+      "Application Support",
+      "IAZAP",
+      "baileys-auth",
+    );
+  }
+  return path.join(os.homedir(), ".iazap", "baileys-auth");
+}
+
 const socketPath =
   process.env.IAZAP_SOCKET ?? path.join(os.tmpdir(), "iazap-bridge.sock");
 const token = process.env.IAZAP_TOKEN ?? "dev-token-change-me";
-const authDir =
-  process.env.IAZAP_AUTH ?? path.join(os.homedir(), ".iazap", "baileys-auth");
+const authDir = process.env.IAZAP_AUTH ?? defaultAuthDir();
 const stubWa = process.env.IAZAP_STUB_WA === "1";
 
 fs.mkdirSync(authDir, { recursive: true });
@@ -40,6 +53,14 @@ const stubChats: Chat[] = [
     lastMessagePreview: "Olá!",
     lastMessageAt: Date.now() - 60_000,
   },
+  {
+    id: "5511888888888@s.whatsapp.net",
+    name: "Maria (stub)",
+    isGroup: false,
+    autoReply: false,
+    lastMessagePreview: "Tudo bem?",
+    lastMessageAt: Date.now() - 120_000,
+  },
 ];
 
 function getStatus(): SessionStatus {
@@ -54,13 +75,33 @@ function listChats(): Chat[] {
   }));
 }
 
+function syncStubSelection(chatIds: string[]): { ok: true; chatIds: string[] } {
+  stubAutoReply.clear();
+  for (const id of chatIds) stubAutoReply.set(id, true);
+  for (const c of stubChats) {
+    c.autoReply = stubAutoReply.get(c.id) ?? false;
+  }
+  return { ok: true as const, chatIds: [...stubAutoReply.keys()] };
+}
+
 const rpc = new RpcServer(token, {
   getStatus,
   listChats,
   setAutoReply: ({ chatId, enabled }) => {
     if (session) session.setAutoReply(chatId, enabled);
-    else stubAutoReply.set(chatId, enabled);
+    else {
+      stubAutoReply.set(chatId, enabled);
+      const chat = stubChats.find((c) => c.id === chatId);
+      if (chat) chat.autoReply = enabled;
+    }
     return { ok: true as const, chatId, enabled };
+  },
+  syncSelection: ({ chatIds }) => {
+    if (session) {
+      session.syncSelection(chatIds);
+      return { ok: true as const, chatIds: session.selectedChatIds() };
+    }
+    return syncStubSelection(chatIds);
   },
   sendMessage: async ({ chatId, text }) => {
     if (session) return session.sendText(chatId, text);
@@ -68,11 +109,58 @@ const rpc = new RpcServer(token, {
     err.code = -32010;
     throw err;
   },
+  reconnect: async () => {
+    if (stubWa) {
+      stubStatus = { state: "qr", me: null, lastError: null };
+      rpc.notify("session.status", stubStatus);
+      rpc.notify("qr.update", {
+        qr: "IAZAP-STUB-QR-PLACEHOLDER-scan-disabled-in-stub-mode",
+      });
+      return stubStatus;
+    }
+    if (!session) {
+      session = wireSession(new WhatsAppSession(authDir));
+    }
+    return session.reconnect();
+  },
+  logout: async () => {
+    if (stubWa) {
+      stubStatus = {
+        state: "logged_out",
+        me: null,
+        lastError: null,
+      };
+      rpc.notify("session.status", stubStatus);
+      rpc.notify("qr.update", { qr: null });
+      return stubStatus;
+    }
+    if (!session) {
+      session = wireSession(new WhatsAppSession(authDir));
+    }
+    return session.logout();
+  },
 });
+
+function wireSession(s: WhatsAppSession): WhatsAppSession {
+  s.on("status", (status: SessionStatus) => {
+    rpc.notify("session.status", status);
+  });
+  s.on("qr", (qr: string | null) => {
+    rpc.notify("qr.update", { qr });
+  });
+  s.on("inbound", (msg) => {
+    rpc.notify("messages.inbound", msg);
+  });
+  s.on("chats", (chats: Chat[]) => {
+    rpc.notify("chats.updated", { chats });
+  });
+  return s;
+}
 
 async function main(): Promise<void> {
   await rpc.listen(socketPath);
   console.error(`[iazap-bridge] listening on ${socketPath}`);
+  console.error(`[iazap-bridge] auth dir ${authDir}`);
 
   if (stubWa) {
     stubStatus = {
@@ -84,21 +172,12 @@ async function main(): Promise<void> {
     rpc.notify("qr.update", {
       qr: "IAZAP-STUB-QR-PLACEHOLDER-scan-disabled-in-stub-mode",
     });
+    rpc.notify("chats.updated", { chats: listChats() });
     console.error("[iazap-bridge] stub WhatsApp mode — no Baileys socket");
     return;
   }
 
-  session = new WhatsAppSession(authDir);
-  session.on("status", (status: SessionStatus) => {
-    rpc.notify("session.status", status);
-  });
-  session.on("qr", (qr: string | null) => {
-    rpc.notify("qr.update", { qr });
-  });
-  session.on("inbound", (msg) => {
-    rpc.notify("messages.inbound", msg);
-  });
-
+  session = wireSession(new WhatsAppSession(authDir));
   await session.start();
 }
 

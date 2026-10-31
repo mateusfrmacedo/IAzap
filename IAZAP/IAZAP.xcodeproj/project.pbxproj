@@ -18,6 +18,7 @@
 		A30000000000000000000502 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000502 /* OnboardingView.swift */; };
 		A30000000000000000000503 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000503 /* SettingsView.swift */; };
 		A30000000000000000000504 /* StatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000504 /* StatusView.swift */; };
+		A30000000000000000000505 /* QRCodeImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000505 /* QRCodeImage.swift */; };
 		A30000000000000000000601 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000601 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -34,6 +35,7 @@
 		A20000000000000000000502 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A20000000000000000000503 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A20000000000000000000504 /* StatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusView.swift; sourceTree = "<group>"; };
+		A20000000000000000000505 /* QRCodeImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeImage.swift; sourceTree = "<group>"; };
 		A20000000000000000000601 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10000000000000000000006 /* IAZAP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IAZAP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -112,6 +114,7 @@
 			children = (
 				A20000000000000000000501 /* ChatListView.swift */,
 				A20000000000000000000502 /* OnboardingView.swift */,
+				A20000000000000000000505 /* QRCodeImage.swift */,
 				A20000000000000000000503 /* SettingsView.swift */,
 				A20000000000000000000504 /* StatusView.swift */,
 			);
@@ -198,6 +201,7 @@
 				A30000000000000000000401 /* AppStore.swift in Sources */,
 				A30000000000000000000501 /* ChatListView.swift in Sources */,
 				A30000000000000000000502 /* OnboardingView.swift in Sources */,
+				A30000000000000000000505 /* QRCodeImage.swift in Sources */,
 				A30000000000000000000503 /* SettingsView.swift in Sources */,
 				A30000000000000000000504 /* StatusView.swift in Sources */,
 			);

@@ -1,5 +1,5 @@
 /**
- * IAZAP shared IPC types — protocolVersion 1.
+ * IAZAP shared IPC types — protocolVersion 1 (Phase 2 additive methods).
  * Consumed by the Node bridge; mirrored in Swift (BridgeProtocol.swift).
  */
 
@@ -53,6 +53,11 @@ export interface ChatsSetAutoReplyParams {
   enabled: boolean;
 }
 
+/** Bulk sync of selected JIDs (app is source of truth). */
+export interface ChatsSyncSelectionParams {
+  chatIds: string[];
+}
+
 export interface MessagesSendParams {
   chatId: string;
   text: string;
@@ -62,13 +67,17 @@ export interface MessagesSendParams {
 export type RequestMethod =
   | "session.hello"
   | "session.status"
+  | "session.reconnect"
+  | "session.logout"
   | "chats.list"
   | "chats.setAutoReply"
+  | "chats.syncSelection"
   | "messages.send";
 
 export type NotificationMethod =
   | "qr.update"
   | "messages.inbound"
-  | "session.status";
+  | "session.status"
+  | "chats.updated";
 
 export type RpcMethod = RequestMethod | NotificationMethod;

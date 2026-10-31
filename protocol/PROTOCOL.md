@@ -1,4 +1,4 @@
-# IAZAP Bridge Protocol (Phase 1)
+# IAZAP Bridge Protocol (Phase 2)
 
 JSON-RPC 2.0 over a **Unix domain socket** (preferred) or TCP `127.0.0.1` with a session token.
 
@@ -11,7 +11,7 @@ JSON-RPC 2.0 over a **Unix domain socket** (preferred) or TCP `127.0.0.1` with a
 | Auth | First request after connect must be `session.hello` with `token` minted by the app |
 | Encoding | UTF-8 |
 
-The macOS app launches the Node bridge as a child process, writes the socket path + token to env (`IAZAP_SOCKET`, `IAZAP_TOKEN`), then connects as JSON-RPC client.
+The macOS app launches the Node bridge as a child process, writes the socket path + token + auth dir to env (`IAZAP_SOCKET`, `IAZAP_TOKEN`, `IAZAP_AUTH`), then connects as JSON-RPC client.
 
 Direction model:
 
@@ -58,13 +58,27 @@ Authenticate the IPC session.
 
 Also pushed as a notification with the same `params` shape when state changes (`method`: `session.status`).
 
+### `session.reconnect`
+
+Restart the Baileys socket without wiping auth (unless already logged out).
+
+**Params:** `{}`  
+**Result:** `SessionStatus` (same shape as `session.status`)
+
+### `session.logout`
+
+Log out of WhatsApp multi-device and wipe local auth files under `IAZAP_AUTH`. Next reconnect emits a fresh QR.
+
+**Params:** `{}`  
+**Result:** `SessionStatus` (typically `logged_out`)
+
 ### `qr.update` (notification only)
 
 ```json
 { "qr": "2@...." }
 ```
 
-`qr` is the raw Baileys QR string for the UI to render. `null` clears the QR once paired.
+`qr` is the raw Baileys QR **payload string** for the UI to encode as a QR image (CoreImage / CIFilter). `null` clears the QR once paired.
 
 ### `chats.list`
 
@@ -76,10 +90,18 @@ type Chat = {
   id: string;          // JID
   name: string;
   isGroup: boolean;
-  autoReply: boolean;  // mirror of selection known to bridge (app is source of truth in Phase 1)
+  autoReply: boolean;  // mirror of selection known to bridge
   lastMessagePreview?: string;
   lastMessageAt?: number; // unix ms
 }
+```
+
+### `chats.updated` (notification only)
+
+Pushed when the bridge chat cache changes (upsert/update/inbound).
+
+```json
+{ "chats": [ /* Chat[] */ ] }
 ```
 
 ### `chats.setAutoReply`
@@ -87,7 +109,14 @@ type Chat = {
 **Params:** `{ "chatId": string, "enabled": boolean }`  
 **Result:** `{ "ok": true, "chatId": string, "enabled": boolean }`
 
-Phase 1: bridge mirrors the flag for `chats.list`; the Swift `AppStore` / UserDefaults remains the selection source of truth. Later phases push the set into the message pipeline.
+The Swift `AppStore` / UserDefaults remains the selection source of truth. The bridge mirrors flags so the future message pipeline can filter.
+
+### `chats.syncSelection`
+
+Bulk replace the mirrored selection set (enabled JIDs only). Call after `session.hello` so the bridge matches UserDefaults.
+
+**Params:** `{ "chatIds": string[] }`  
+**Result:** `{ "ok": true, "chatIds": string[] }`
 
 ### `messages.inbound` (notification only)
 
@@ -101,14 +130,14 @@ Phase 1: bridge mirrors the flag for `chats.list`; the Swift `AppStore` / UserDe
 }
 ```
 
-Text-only in Phase 1. Media is ignored by the bridge (or omitted).
+Text-only. Media is ignored by the bridge (or omitted).
 
 ### `messages.send`
 
 **Params:** `{ "chatId": string, "text": string }`  
 **Result:** `{ "messageId": string }`
 
-Phase 1 stub may reject with “not connected” until Baileys session is live. Auto-send pipeline is out of scope.
+Manual/test send. Auto-send pipeline is out of scope until Phase 3+.
 
 ## Error codes
 
@@ -122,9 +151,20 @@ Phase 1 stub may reject with “not connected” until Baileys session is live. 
 | `-32010` | WhatsApp not connected |
 | `-32000` | Generic bridge error |
 
+## Auth files
+
+Baileys multi-file creds live under `IAZAP_AUTH`:
+
+| Platform | Default |
+|---|---|
+| macOS | `~/Library/Application Support/IAZAP/baileys-auth` |
+| other | `~/.iazap/baileys-auth` |
+
+`session.logout` deletes contents of that directory.
+
 ## Versioning
 
-`protocolVersion: 1` for Phase 1. Bump when adding required fields or renaming methods. Shared types live in:
+`protocolVersion: 1` — Phase 2 adds methods/notifications without breaking Phase 1 clients that ignore unknown notifications. Shared types live in:
 
 - `protocol/types.ts` (TypeScript source of truth for the bridge)
 - `IAZAP/IAZAP/Bridge/BridgeProtocol.swift` (Swift mirror)

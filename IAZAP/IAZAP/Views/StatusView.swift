@@ -7,12 +7,17 @@ struct StatusView: View {
 
     var body: some View {
         Form {
-            Section("WhatsApp bridge") {
+            Section("WhatsApp") {
                 LabeledContent("IPC") {
                     Text(bridge.isConnected ? "conectado" : "offline")
                 }
                 LabeledContent("Sessão") {
-                    Text(bridge.sessionStatus.state.label)
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(bridge.sessionStatus.state.color)
+                            .frame(width: 8, height: 8)
+                        Text(bridge.sessionStatus.state.label)
+                    }
                 }
                 if let me = bridge.sessionStatus.me {
                     LabeledContent("Conta") {
@@ -20,11 +25,23 @@ struct StatusView: View {
                             .textSelection(.enabled)
                     }
                 }
+                LabeledContent("Auto-reply JIDs") {
+                    Text("\(store.selectedChatIDs.count)")
+                }
                 if let err = bridge.sessionStatus.lastError ?? bridge.lastError {
                     Text(err)
                         .foregroundStyle(.red)
                         .font(.caption)
                 }
+            }
+
+            Section("Credenciais (local)") {
+                Text(bridge.authDirectoryPath)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                Text("Arquivos Baileys (creds + keys). Apagados em Desconectar conta.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Modelo MLX") {
@@ -43,16 +60,37 @@ struct StatusView: View {
                     Button("Conectar ao socket padrão") {
                         Task { await bridge.connect() }
                     }
-                    Button("Iniciar bridge (stub WA)") {
-                        let url = URL(
-                            fileURLWithPath: bridgeDirText.isEmpty ? defaultBridgeHint() : bridgeDirText,
-                            isDirectory: true
-                        )
+                    Button("Iniciar bridge (WhatsApp real)") {
+                        let url = bridgeDirectoryURL()
+                        Task { await bridge.startBridgeAndConnect(bridgeDirectory: url, stubWhatsApp: false) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Button("Iniciar bridge (stub)") {
+                        let url = bridgeDirectoryURL()
                         Task { await bridge.startBridgeAndConnect(bridgeDirectory: url, stubWhatsApp: true) }
                     }
-                    Button("Desconectar") {
+                }
+                HStack {
+                    Button("Reconectar sessão") {
+                        Task { await bridge.reconnectSession() }
+                    }
+                    .disabled(!bridge.isConnected)
+                    Button("Desconectar conta (logout)") {
+                        Task { await bridge.logoutSession() }
+                    }
+                    .disabled(!bridge.isConnected)
+                    Button("Sincronizar seleção") {
+                        Task { await bridge.syncSelectionToBridge() }
+                    }
+                    .disabled(!bridge.isConnected)
+                    Button("Desconectar IPC") {
                         bridge.disconnect()
                     }
+                }
+                if bridge.bridgeProcessRunning {
+                    Text("Processo Node do bridge em execução (filho do app).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -82,8 +120,14 @@ struct StatusView: View {
         }
     }
 
+    private func bridgeDirectoryURL() -> URL {
+        URL(
+            fileURLWithPath: bridgeDirText.isEmpty ? defaultBridgeHint() : bridgeDirText,
+            isDirectory: true
+        )
+    }
+
     private func defaultBridgeHint() -> String {
-        // Prefer sibling `bridge/` when the app is run from a repo checkout.
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Developer/IAzap/bridge", isDirectory: true)
             .path
