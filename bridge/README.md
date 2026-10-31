@@ -17,17 +17,22 @@ cd bridge
 npm install
 ```
 
-## Run (dev)
+## Run
+
+O app macOS costuma chamar `npm run serve` sozinho (filho do processo). Manual:
 
 ```bash
-# Auto engine: MLX if mlx-service is up, else stub
+# Estável (sem watch) — o que o app spawna
+IAZAP_TOKEN=dev-token-change-me npm run serve
+
+# Dev com reload
 IAZAP_TOKEN=dev-token-change-me npm run dev
 
 # Force stub
-IAZAP_ENGINE=stub IAZAP_TOKEN=dev-token-change-me npm run dev
+IAZAP_ENGINE=stub IAZAP_TOKEN=dev-token-change-me npm run serve
 
 # IPC + pipeline smoke without contacting WhatsApp
-IAZAP_STUB_WA=1 IAZAP_TOKEN=dev-token-change-me npm run dev
+IAZAP_STUB_WA=1 IAZAP_TOKEN=dev-token-change-me npm run serve
 ```
 
 | Env | Default |
@@ -45,6 +50,7 @@ IAZAP_STUB_WA=1 IAZAP_TOKEN=dev-token-change-me npm run dev
 
 | Script | What it does |
 |---|---|
+| `npm run serve` | `tsx src/index.ts` (sem watch — usado pelo app) |
 | `npm run dev` | `tsx watch` |
 | `npm run build` | Compile to `dist/` |
 | `npm start` | Run compiled `dist/index.js` |

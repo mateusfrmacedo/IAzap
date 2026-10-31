@@ -15,6 +15,7 @@ Icon?
 # Xcode / Swift
 build/
 DerivedData/
+.derivedData/
 *.xcuserstate
 *.xccheckout
 *.moved-aside

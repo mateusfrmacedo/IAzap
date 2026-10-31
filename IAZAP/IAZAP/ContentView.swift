@@ -2,7 +2,8 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var bridge: BridgeClient
-    @State private var selection: SidebarItem? = .chats
+    @EnvironmentObject private var store: AppStore
+    @State private var selection: SidebarItem? = .onboarding
 
     var body: some View {
         NavigationSplitView {
@@ -15,7 +16,7 @@ struct ContentView: View {
             .navigationTitle("IAZAP")
             .listStyle(.sidebar)
         } detail: {
-            switch selection ?? .chats {
+            switch selection ?? .onboarding {
             case .onboarding:
                 OnboardingView()
             case .chats:
@@ -42,6 +43,12 @@ struct ContentView: View {
                         .foregroundStyle(bridge.pipelineStatus.enabled ? .green : .secondary)
                         .font(.caption)
                 }
+            }
+        }
+        .onChange(of: bridge.sessionStatus.state) { _, newState in
+            // After first successful pair, nudge toward chats once.
+            if newState == .connected, selection == .onboarding, store.tosRiskAccepted {
+                // stay on Parear so user sees connected confirmation; they can switch manually
             }
         }
     }

@@ -108,16 +108,22 @@ struct StatusView: View {
             }
 
             Section("Conectar") {
+                Text("Detalhe: \(bridge.statusDetail)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 TextField("Pasta do bridge (…/IAzap/bridge)", text: $bridgeDirText)
                 HStack {
+                    Button("Auto-iniciar (recomendado)") {
+                        if let url = BridgeLocator.resolve() ?? optionalBridgeURL() {
+                            BridgeLocator.remember(url)
+                            bridgeDirText = url.path
+                        }
+                        Task { await bridge.restartBridge(stubWhatsApp: false) }
+                    }
+                    .buttonStyle(.borderedProminent)
                     Button("Conectar ao socket padrão") {
                         Task { await bridge.connect() }
                     }
-                    Button("Iniciar bridge (WhatsApp real)") {
-                        let url = bridgeDirectoryURL()
-                        Task { await bridge.startBridgeAndConnect(bridgeDirectory: url, stubWhatsApp: false) }
-                    }
-                    .buttonStyle(.borderedProminent)
                     Button("Iniciar bridge (stub)") {
                         let url = bridgeDirectoryURL()
                         Task { await bridge.startBridgeAndConnect(bridgeDirectory: url, stubWhatsApp: true) }
@@ -147,6 +153,11 @@ struct StatusView: View {
                     Text("Processo Node do bridge em execução (filho do app).")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+                if !bridge.bridgeDirectoryPath.isEmpty {
+                    Text("Bridge: \(bridge.bridgeDirectoryPath)")
+                        .font(.caption2.monospaced())
+                        .textSelection(.enabled)
                 }
             }
 
@@ -196,7 +207,9 @@ struct StatusView: View {
         .navigationTitle("Status")
         .onAppear {
             if bridgeDirText.isEmpty {
-                bridgeDirText = defaultBridgeHint()
+                bridgeDirText = bridge.bridgeDirectoryPath.isEmpty
+                    ? (BridgeLocator.resolve()?.path ?? defaultBridgeHint())
+                    : bridge.bridgeDirectoryPath
             }
         }
     }
@@ -208,9 +221,15 @@ struct StatusView: View {
         )
     }
 
+    private func optionalBridgeURL() -> URL? {
+        let url = bridgeDirectoryURL()
+        return BridgeLocator.isBridgePackage(url) ? url : nil
+    }
+
     private func defaultBridgeHint() -> String {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Developer/IAzap/bridge", isDirectory: true)
-            .path
+        BridgeLocator.resolve()?.path
+            ?? FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Developer/IAzap/bridge", isDirectory: true)
+                .path
     }
 }

@@ -12,6 +12,7 @@
 		A30000000000000000000201 /* BridgeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000201 /* BridgeClient.swift */; };
 		A30000000000000000000202 /* BridgeProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000202 /* BridgeProtocol.swift */; };
 		A30000000000000000000203 /* NWUnixConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000203 /* NWUnixConnection.swift */; };
+		A30000000000000000000204 /* BridgeLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000204 /* BridgeLocator.swift */; };
 		A30000000000000000000301 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000301 /* Models.swift */; };
 		A30000000000000000000401 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000401 /* AppStore.swift */; };
 		A30000000000000000000501 /* ChatListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000501 /* ChatListView.swift */; };
@@ -29,6 +30,7 @@
 		A20000000000000000000201 /* BridgeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeClient.swift; sourceTree = "<group>"; };
 		A20000000000000000000202 /* BridgeProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeProtocol.swift; sourceTree = "<group>"; };
 		A20000000000000000000203 /* NWUnixConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NWUnixConnection.swift; sourceTree = "<group>"; };
+		A20000000000000000000204 /* BridgeLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeLocator.swift; sourceTree = "<group>"; };
 		A20000000000000000000301 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		A20000000000000000000401 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
 		A20000000000000000000501 /* ChatListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatListView.swift; sourceTree = "<group>"; };
@@ -78,7 +80,6 @@
 				A10000000000000000000014 /* Models */,
 				A10000000000000000000015 /* Store */,
 				A10000000000000000000016 /* Views */,
-				A20000000000000000000601 /* Assets.xcassets */,
 			);
 			path = IAZAP;
 			sourceTree = "<group>";
@@ -89,6 +90,7 @@
 				A20000000000000000000201 /* BridgeClient.swift */,
 				A20000000000000000000202 /* BridgeProtocol.swift */,
 				A20000000000000000000203 /* NWUnixConnection.swift */,
+				A20000000000000000000204 /* BridgeLocator.swift */,
 			);
 			path = Bridge;
 			sourceTree = "<group>";
@@ -129,6 +131,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = A10000000000000000000025 /* Build configuration list for PBXNativeTarget "IAZAP" */;
 			buildPhases = (
+				A10000000000000000000007 /* Embed Bridge Path */,
 				A10000000000000000000003 /* Sources */,
 				A10000000000000000000005 /* Frameworks */,
 				A10000000000000000000004 /* Resources */,
@@ -187,6 +190,29 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		A10000000000000000000007 /* Embed Bridge Path */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Bridge Path";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/bridge-root.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nBRIDGE_DIR=\"${SRCROOT}/../bridge\"\nRESOURCES=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"${RESOURCES}\"\nif [ -f \"${BRIDGE_DIR}/package.json\" ]; then\n  /bin/echo -n \"${BRIDGE_DIR}\" > \"${RESOURCES}/bridge-root.txt\"\n  echo \"[IAZAP] bridge-root.txt -> ${BRIDGE_DIR}\"\nelse\n  echo \"warning: bridge not found at ${BRIDGE_DIR} — set IAZAP_BRIDGE_DIR at runtime\"\n  /bin/echo -n \"\" > \"${RESOURCES}/bridge-root.txt\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		A10000000000000000000003 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -197,6 +223,7 @@
 				A30000000000000000000201 /* BridgeClient.swift in Sources */,
 				A30000000000000000000202 /* BridgeProtocol.swift in Sources */,
 				A30000000000000000000203 /* NWUnixConnection.swift in Sources */,
+				A30000000000000000000204 /* BridgeLocator.swift in Sources */,
 				A30000000000000000000301 /* Models.swift in Sources */,
 				A30000000000000000000401 /* AppStore.swift in Sources */,
 				A30000000000000000000501 /* ChatListView.swift in Sources */,

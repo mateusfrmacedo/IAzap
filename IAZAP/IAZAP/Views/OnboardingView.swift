@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// QR / multi-device pairing. Renders Baileys `qr.update` payload as a CoreImage QR.
+/// Parear screen — botchat-style state→UI: status + detail + one big QR (hidden when null).
 struct OnboardingView: View {
     @EnvironmentObject private var bridge: BridgeClient
     @EnvironmentObject private var store: AppStore
@@ -19,57 +19,15 @@ struct OnboardingView: View {
 
                 statusBanner
 
-                Group {
-                    switch bridge.sessionStatus.state {
-                    case .connected:
-                        connectedCard
-                    case .qr:
-                        qrCard
-                    case .connecting:
-                        ProgressView("Conectando ao WhatsApp…")
-                            .frame(maxWidth: .infinity, minHeight: 180)
-                    case .loggedOut:
-                        ContentUnavailableView(
-                            "Deslogado",
-                            systemImage: "rectangle.portrait.and.arrow.right",
-                            description: Text("Use Reconectar para gerar um novo QR.")
-                        )
-                        .frame(maxWidth: .infinity, minHeight: 180)
-                    default:
-                        if let qr = bridge.qrPayload {
-                            qrCardContent(qr)
-                        } else {
-                            ContentUnavailableView(
-                                "Sem QR",
-                                systemImage: "qrcode",
-                                description: Text("Conecte o bridge na tela Status (sessão real Baileys) e aguarde o QR.")
-                            )
-                            .frame(maxWidth: .infinity, minHeight: 180)
-                        }
-                    }
-                }
+                qrOrStateArea
 
-                HStack(spacing: 12) {
-                    Button("Conectar ao bridge") {
-                        Task { await bridge.connect() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!store.tosRiskAccepted)
+                actionRow
 
-                    Button("Reconectar") {
-                        Task { await bridge.reconnectSession() }
-                    }
-                    .disabled(!bridge.isConnected || !store.tosRiskAccepted)
-
-                    Button("Desconectar conta") {
-                        Task { await bridge.logoutSession() }
-                    }
-                    .disabled(!bridge.isConnected)
-
-                    Button("Atualizar status") {
-                        Task { await bridge.fetchStatus() }
-                    }
-                    .disabled(!bridge.isConnected)
+                if let err = bridge.lastError, !err.isEmpty, bridge.qrPayload == nil {
+                    Text(err)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .textSelection(.enabled)
                 }
 
                 if !store.tosRiskAccepted {
@@ -84,6 +42,13 @@ struct OnboardingView: View {
                     .textSelection(.enabled)
             }
             .padding(28)
+        }
+        .onAppear {
+            Task {
+                if !bridge.isConnected, !bridge.isBootstrapping {
+                    await bridge.bootstrapOnLaunch()
+                }
+            }
         }
     }
 
@@ -110,24 +75,79 @@ struct OnboardingView: View {
     }
 
     private var statusBanner: some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(bridge.sessionStatus.state.color)
-                .frame(width: 10, height: 10)
-            Text(bridge.sessionStatus.state.label)
-                .font(.headline)
-            if let me = bridge.sessionStatus.me {
-                Text("· \(me.name)")
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(bridge.sessionStatus.state.color)
+                    .frame(width: 10, height: 10)
+                Text(bridge.sessionStatus.state.label)
+                    .font(.headline)
+                if let me = bridge.sessionStatus.me {
+                    Text("· \(me.name)")
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(bridge.isConnected ? "IPC ok" : (bridge.isBootstrapping ? "Iniciando…" : "IPC offline"))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
+                if bridge.bridgeProcessRunning {
+                    Text("· bridge filho")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
-            Spacer()
-            Text(bridge.isConnected ? "IPC ok" : "IPC offline")
-                .font(.caption)
+            Text(bridge.statusDetail)
+                .font(.callout)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.primary.opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
+    private var qrOrStateArea: some View {
+        if bridge.sessionStatus.state == .connected {
+            connectedCard
+        } else if let qr = bridge.qrPayload, !qr.isEmpty {
+            // botchat: one big image; hide when null
+            VStack(spacing: 16) {
+                Text("Escaneie este QR")
+                    .font(.headline)
+                HStack {
+                    Spacer(minLength: 0)
+                    QRCodeImage(payload: qr, dimension: 320)
+                    Spacer(minLength: 0)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity)
+            .background(Color.primary.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        } else if bridge.isBootstrapping || bridge.sessionStatus.state == .connecting || bridge.sessionStatus.state == .qr {
+            ProgressView(bridge.statusDetail.isEmpty ? "Aguardando QR…" : bridge.statusDetail)
+                .frame(maxWidth: .infinity, minHeight: 200)
+        } else if bridge.sessionStatus.state == .loggedOut {
+            ContentUnavailableView(
+                "Deslogado",
+                systemImage: "rectangle.portrait.and.arrow.right",
+                description: Text("Use “Gerar novo QR” para parear de novo.")
+            )
+            .frame(maxWidth: .infinity, minHeight: 180)
+        } else {
+            ContentUnavailableView(
+                bridge.isConnected ? "Aguardando QR" : "Bridge offline",
+                systemImage: "qrcode",
+                description: Text(
+                    bridge.isConnected
+                        ? "O Baileys deve emitir o QR em instantes."
+                        : "O app tenta iniciar o bridge automaticamente. Se falhar, use o botão abaixo."
+                )
+            )
+            .frame(maxWidth: .infinity, minHeight: 180)
+        }
     }
 
     private var connectedCard: some View {
@@ -151,37 +171,35 @@ struct OnboardingView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    @ViewBuilder
-    private var qrCard: some View {
-        if let qr = bridge.qrPayload {
-            qrCardContent(qr)
-        } else {
-            ProgressView("Aguardando QR do Baileys…")
-                .frame(maxWidth: .infinity, minHeight: 180)
-        }
-    }
+    private var actionRow: some View {
+        HStack(spacing: 12) {
+            Button(bridge.isConnected ? "Atualizar status" : "Iniciar bridge e gerar QR") {
+                Task {
+                    if bridge.isConnected {
+                        await bridge.fetchStatus()
+                    } else {
+                        await bridge.restartBridge()
+                    }
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!store.tosRiskAccepted && !bridge.isConnected)
 
-    private func qrCardContent(_ qr: String) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Escaneie este QR")
-                .font(.headline)
-            HStack {
-                Spacer(minLength: 0)
-                QRCodeImage(payload: qr, dimension: 280)
-                Spacer(minLength: 0)
+            Button("Gerar novo QR") {
+                Task { await bridge.reconnectSession() }
             }
-            DisclosureGroup("Payload bruto (debug)") {
-                Text(qr)
-                    .font(.system(.caption2, design: .monospaced))
-                    .textSelection(.enabled)
-                    .padding(.top, 4)
+            .disabled(!bridge.isConnected || !store.tosRiskAccepted)
+
+            Button("Desconectar conta") {
+                Task { await bridge.logoutSession() }
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .disabled(!bridge.isConnected)
+
+            if bridge.bridgeProcessRunning {
+                Button("Reiniciar bridge") {
+                    Task { await bridge.restartBridge() }
+                }
+            }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

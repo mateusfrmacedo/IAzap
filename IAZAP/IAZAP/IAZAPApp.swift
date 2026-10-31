@@ -13,6 +13,12 @@ struct IAZAPApp: App {
                 .frame(minWidth: 880, minHeight: 560)
                 .onAppear {
                     bridge.attach(store: store)
+                    Task {
+                        await bridge.bootstrapOnLaunch()
+                    }
+                }
+                .onDisappear {
+                    // Keep child bridge alive while other windows/settings may still use IPC.
                 }
         }
         .defaultSize(width: 980, height: 640)

@@ -49,6 +49,23 @@
             ReferencedContainer = "container:IAZAP.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "IAZAP_BRIDGE_DIR"
+            value = "$(SRCROOT)/../bridge"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "IAZAP_TOKEN"
+            value = "dev-token-change-me"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "IAZAP_SOCKET"
+            value = ""
+            isEnabled = "NO">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
