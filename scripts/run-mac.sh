@@ -11,23 +11,21 @@ export IAZAP_TOKEN="${IAZAP_TOKEN:-dev-token-change-me}"
 
 echo "==> IAZAP repo: $ROOT"
 echo "==> Bridge:    $IAZAP_BRIDGE_DIR"
-echo "==> Token:     $IAZAP_TOKEN"
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   echo "Erro: Node.js/npm não encontrado. Instale Node 22+ (https://nodejs.org)." >&2
   exit 1
 fi
 
-NODE_MAJOR="$(node -p "process.versions.node.split('.')[0]")"
-if [ "$NODE_MAJOR" -lt 20 ]; then
-  echo "Erro: Node >= 20 necessário (encontrado $(node -v))." >&2
+if ! node -e 'require("node:sqlite")' >/dev/null 2>&1; then
+  echo "Erro: Node >= 22.13 necessário com node:sqlite (encontrado $(node -v))." >&2
   exit 1
 fi
 
-echo "==> npm install (bridge)"
+echo "==> npm ci (bridge)"
 (
   cd "$BRIDGE"
-  npm install
+  npm ci
 )
 
 if [ "$(uname -s)" != "Darwin" ]; then

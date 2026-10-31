@@ -75,3 +75,6 @@ coverage/
 *~
 .vscode/
 .cursor/
+
+# Packaged macOS outputs
+dist-mac/

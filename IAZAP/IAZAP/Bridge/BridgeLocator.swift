@@ -13,6 +13,12 @@ enum BridgeLocator {
             if isBridgePackage(url) { return url }
         }
 
+        if let bundled = Bundle.main.resourceURL?.appendingPathComponent("bridge", isDirectory: true),
+           isBridgePackage(bundled) {
+            return bundled
+        }
+
+
         if let saved = UserDefaults.standard.string(forKey: defaultsKey), !saved.isEmpty {
             let url = URL(fileURLWithPath: saved, isDirectory: true)
             if isBridgePackage(url) { return url }
@@ -22,10 +28,6 @@ enum BridgeLocator {
             return tip
         }
 
-        if let bundled = Bundle.main.resourceURL?.appendingPathComponent("bridge", isDirectory: true),
-           isBridgePackage(bundled) {
-            return bundled
-        }
 
         for candidate in candidatePaths() where isBridgePackage(candidate) {
             return candidate
@@ -51,9 +53,11 @@ enum BridgeLocator {
 
     static func isBridgePackage(_ url: URL) -> Bool {
         let pkg = url.appendingPathComponent("package.json")
-        let entry = url.appendingPathComponent("src/index.ts")
+        let source = url.appendingPathComponent("src/index.ts")
+        let compiled = url.appendingPathComponent("dist/index.js")
         return FileManager.default.fileExists(atPath: pkg.path)
-            && FileManager.default.fileExists(atPath: entry.path)
+            && (FileManager.default.fileExists(atPath: source.path)
+                || FileManager.default.fileExists(atPath: compiled.path))
     }
 
     private static func tipFileURL() -> URL? {

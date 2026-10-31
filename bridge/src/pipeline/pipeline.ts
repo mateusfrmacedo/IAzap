@@ -68,6 +68,8 @@ export class MessagePipeline extends EventEmitter {
   private pendingLatest = new Map<string, InboundMessage>();
   private lastSentAt = new Map<string, number>();
   private generation = 0;
+  private chatGenerations = new Map<string, number>();
+  private activeReplies = new Map<symbol, "generating" | "sending">();
 
   constructor(deps: PipelineDeps, opts: PipelineOptions = {}) {
     super();
@@ -234,6 +236,8 @@ export class MessagePipeline extends EventEmitter {
   }
 
   private scheduleReply(msg: InboundMessage): void {
+    // Invalidate the previous turn immediately, including while this one debounces.
+    this.chatGenerations.set(msg.chatId, ++this.generation);
     this.pendingLatest.set(msg.chatId, msg);
     const existing = this.debounceTimers.get(msg.chatId);
     if (existing) clearTimeout(existing);
@@ -300,7 +304,9 @@ export class MessagePipeline extends EventEmitter {
       return;
     }
 
-    const gen = ++this.generation;
+    const gen = this.chatGenerations.get(msg.chatId);
+    const job = Symbol(msg.chatId);
+    this.activeReplies.set(job, "generating");
     try {
       this.setPhase("generating");
       this.emitStatus();
@@ -328,11 +334,16 @@ export class MessagePipeline extends EventEmitter {
         messageId: msg.messageId,
       });
 
-      if (gen !== this.generation) {
+      if (gen !== this.chatGenerations.get(msg.chatId)) {
         // Newer inbound superseded this turn before send.
         return;
       }
 
+      // Selection and the kill switch can change while inference is running.
+      if (!this.enabled || !this.isSelected(msg.chatId)) return;
+      if (!this.allowGroups && (this.isGroupFn?.(msg.chatId) ?? msg.chatId.endsWith("@g.us"))) return;
+
+      this.activeReplies.set(job, "sending");
       this.setPhase("sending");
       this.emitStatus();
 
@@ -347,9 +358,8 @@ export class MessagePipeline extends EventEmitter {
         detail: truncate(reply, 120),
         messageId,
       });
-      this.setPhase("idle");
-      this.emitStatus();
     } catch (err) {
+      if (gen !== this.chatGenerations.get(msg.chatId)) return;
       const message = err instanceof Error ? err.message : String(err);
       this.lastError = message;
       this.setPhase("error");
@@ -360,18 +370,25 @@ export class MessagePipeline extends EventEmitter {
         messageId: msg.messageId,
       });
       this.emitStatus();
+    } finally {
+      this.activeReplies.delete(job);
+      if (this.chatGenerations.get(msg.chatId) === gen) this.chatGenerations.delete(msg.chatId);
       this.finishIdleIfQuiet();
     }
   }
 
   private finishIdleIfQuiet(): void {
-    if (this.debounceTimers.size === 0) {
-      this.setPhase(this.lastError && this.phase === "error" ? "error" : "idle");
-      this.emitStatus();
-    }
+    if (!this.enabled) this.setPhase("idle");
+    else if ([...this.activeReplies.values()].includes("sending")) this.setPhase("sending");
+    else if (this.activeReplies.size > 0) this.setPhase("generating");
+    else if (this.debounceTimers.size > 0) this.setPhase("debouncing");
+    else this.setPhase(this.lastError ? "error" : "idle");
+    this.emitStatus();
   }
 
   private clearDebounces(): void {
+    // Invalidates already-running generations too, even after an off/on toggle.
+    this.chatGenerations.clear();
     for (const t of this.debounceTimers.values()) clearTimeout(t);
     this.debounceTimers.clear();
     this.pendingLatest.clear();

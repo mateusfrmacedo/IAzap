@@ -28,6 +28,45 @@ open IAZAP/IAZAP.xcodeproj
 
 Não precisa abrir outro Terminal para o bridge. Se o bridge já estiver rodando (`npm run serve`), o app só conecta no socket.
 
+## App instalável (Apple Silicon)
+
+Para gerar um `.dmg` (arrastar para Aplicativos) e um `.zip`:
+
+```bash
+./scripts/package-mac.sh
+# Saída: dist-mac/IAZAP-apple-silicon.dmg e .zip
+```
+
+O pacote inclui Node e o bridge compilado com dependências de produção. O usuário
+não precisa de Xcode, Node, npm ou do checkout para parear o WhatsApp. O bridge
+usa os recursos do próprio app e grava seus logs em `IAZAP_DATA/bridge.log`.
+Requer macOS 14+ e Apple Silicon.
+
+Esta versão de teste usa assinatura ad-hoc. Distribuição pública sem alertas do
+Gatekeeper ainda exige um certificado **Developer ID Application** e notarização
+Apple; esses passos não são executados pelo script. A inferência MLX e os pesos
+continuam opcionais e exigem a configuração descrita abaixo. Sem o serviço,
+o motor retorna mensagens de demonstração identificadas como stub.
+
+### Verificação
+
+```bash
+cd bridge
+npm ci
+npm run build
+npm test
+npm run smoke:pipeline
+cd ..
+python3 -m unittest discover -s mlx-service -v
+./scripts/smoke-bootstrap.sh
+# Depois de empacotar:
+./scripts/smoke-package.sh
+```
+
+O teste nativo usa WhatsApp simulado e diretórios temporários; não pareia contas.
+O bridge conserva o QR mais recente e o reenvia após `session.hello`, inclusive
+quando o cliente conecta depois da geração do código.
+
 ## Status
 
 | Camada | Estado |
@@ -56,7 +95,7 @@ scripts/run-mac.sh     # npm install bridge + open/build/launch
 - **Apple Silicon** (alvo: M1 Pro / 16GB+)
 - **macOS 14+** recomendado
 - **Xcode 15+**
-- **Node.js 20+** (22+ preferível; `node:sqlite`)
+- **Node.js 22.13+** (`node:sqlite` sem flag experimental)
 - **Python 3.10+** com venv para `mlx-service` (Metal) — só para respostas MLX reais
 
 ### Memória (modelo)

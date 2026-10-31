@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct IAZAPApp: App {
+    @NSApplicationDelegateAdaptor(IAZAPAppDelegate.self) private var appDelegate
     @StateObject private var store = AppStore()
     @StateObject private var bridge = BridgeClient()
 
@@ -12,6 +13,7 @@ struct IAZAPApp: App {
                 .environmentObject(bridge)
                 .frame(minWidth: 880, minHeight: 560)
                 .onAppear {
+                    appDelegate.bridge = bridge
                     bridge.attach(store: store)
                     Task {
                         await bridge.bootstrapOnLaunch()
@@ -28,5 +30,14 @@ struct IAZAPApp: App {
                 .environmentObject(store)
                 .environmentObject(bridge)
         }
+    }
+}
+
+@MainActor
+final class IAZAPAppDelegate: NSObject, NSApplicationDelegate {
+    weak var bridge: BridgeClient?
+
+    func applicationWillTerminate(_ notification: Notification) {
+        bridge?.disconnect()
     }
 }

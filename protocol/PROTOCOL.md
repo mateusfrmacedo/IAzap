@@ -306,3 +306,11 @@ Trigger weight load / HF download via mlx-service.
 
 - `protocol/types.ts` (TypeScript source of truth for the bridge)
 - `IAZAP/IAZAP/Bridge/BridgeProtocol.swift` (Swift mirror)
+
+## Reconexão do cliente e QR
+
+Após `session.hello` autenticado, o servidor reenvia o último estado de
+`session.status`, `qr.update`, `chats.updated`, `pipeline.status` e `model.status`
+que já tiver sido emitido. Isso evita perder um QR gerado antes da conexão do app.
+`qr.update` com `qr: null` substitui o código anterior e também é reenviado.
+Clientes ainda não autenticados não recebem notificações.

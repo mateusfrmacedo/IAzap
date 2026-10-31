@@ -31,6 +31,7 @@ final class BridgeClient: ObservableObject {
     private var connection: NWUnixConnection?
     private var nextID = 1
     private var pending: [Int: CheckedContinuation<Data, Error>] = [:]
+    private var requestTimeouts: [Int: Task<Void, Never>] = [:]
     private var sessionToken = BridgeClient.defaultToken
     private var socketPath: String = BridgeClient.defaultSocketPath()
     private var bridgeProcess: Process?
@@ -123,25 +124,32 @@ final class BridgeClient: ObservableObject {
         lastError = nil
 
         do {
-            connection?.cancel()
+            disconnectIPCOnly()
+            guard FileManager.default.fileExists(atPath: self.socketPath) else {
+                throw BridgeClientError.notConnected
+            }
             let conn = NWUnixConnection(path: self.socketPath)
-            conn.onLine = { [weak self] line in
+            conn.onLine = { [weak self, weak conn] line in
                 Task { @MainActor in
-                    self?.handleIncomingLine(line)
+                    guard let self, let conn, self.connection === conn else { return }
+                    self.handleIncomingLine(line)
                 }
             }
-            conn.onState = { [weak self] ready, error in
+            conn.onState = { [weak self, weak conn] ready, error in
                 Task { @MainActor in
-                    self?.isConnected = ready
+                    guard let self, let conn, self.connection === conn else { return }
+                    if !ready {
+                        self.isConnected = false
+                        self.failPendingRequests(BridgeClientError.notConnected)
+                    }
                     if let error {
-                        self?.lastError = error
-                        self?.isConnected = false
-                        self?.statusDetail = "IPC offline: \(error)"
+                        self.lastError = error
+                        self.statusDetail = "IPC offline: \(error)"
                     }
                 }
             }
-            try conn.start()
             self.connection = conn
+            try conn.start()
 
             try await Task.sleep(nanoseconds: 200_000_000)
 
@@ -164,8 +172,7 @@ final class BridgeClient: ObservableObject {
         } catch {
             lastError = error.localizedDescription
             isConnected = false
-            connection?.cancel()
-            connection = nil
+            disconnectIPCOnly()
         }
     }
 
@@ -183,12 +190,15 @@ final class BridgeClient: ObservableObject {
         if ProcessInfo.processInfo.environment["IAZAP_TOKEN"] == nil {
             sessionToken = Self.defaultToken
         }
-        socketPath = BridgeClient.defaultSocketPath()
+        // Preserve IAZAP_SOCKET resolved during bootstrap.
         // Remove stale socket so the child can bind.
         try? FileManager.default.removeItem(atPath: socketPath)
 
-        let authURL = BridgeClient.defaultAuthDirectory()
-        let dataURL = BridgeClient.defaultDataDirectory()
+        let environment = ProcessInfo.processInfo.environment
+        let authURL = environment["IAZAP_AUTH"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? BridgeClient.defaultAuthDirectory()
+        let dataURL = environment["IAZAP_DATA"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? BridgeClient.defaultDataDirectory()
         try? FileManager.default.createDirectory(at: authURL, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: dataURL, withIntermediateDirectories: true)
         authDirectoryPath = authURL.path
@@ -198,11 +208,19 @@ final class BridgeClient: ObservableObject {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        // Prefer non-watch serve so the child stays stable under the app.
-        process.arguments = ["npm", "run", "serve"]
+        // Own Node directly so terminate() also stops the bridge, without an npm parent.
+        if let bundledNode = Bundle.main.executableURL?.deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("Helpers/node"),
+           FileManager.default.isExecutableFile(atPath: bundledNode.path) {
+            process.executableURL = bundledNode
+            process.arguments = ["dist/index.js"]
+        } else {
+            process.arguments = ["node", "--import", "tsx", "src/index.ts"]
+        }
         process.currentDirectoryURL = bridgeDirectory
 
         var env = ProcessInfo.processInfo.environment
+        env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + (env["PATH"] ?? "/usr/bin:/bin")
         env["IAZAP_SOCKET"] = socketPath
         env["IAZAP_TOKEN"] = sessionToken
         env["IAZAP_AUTH"] = authURL.path
@@ -214,9 +232,10 @@ final class BridgeClient: ObservableObject {
         }
         process.environment = env
 
-        let errPipe = Pipe()
-        process.standardError = errPipe
-        process.standardOutput = errPipe
+        // A pipe without a reader fills up and freezes Node. Keep diagnostics in a file.
+        let logURL = dataURL.appendingPathComponent("bridge.log")
+        FileManager.default.createFile(atPath: logURL.path, contents: nil,
+                                       attributes: [.posixPermissions: 0o600])
         process.terminationHandler = { [weak self] proc in
             Task { @MainActor in
                 guard let self else { return }
@@ -230,7 +249,11 @@ final class BridgeClient: ObservableObject {
         }
 
         do {
-            try ensureBridgeDependencies(at: bridgeDirectory)
+            try await ensureBridgeDependencies(at: bridgeDirectory, environment: env)
+            let logHandle = try FileHandle(forWritingTo: logURL)
+            defer { try? logHandle.close() }
+            process.standardError = logHandle
+            process.standardOutput = logHandle
             try process.run()
             bridgeProcess = process
             bridgeProcessRunning = true
@@ -238,7 +261,8 @@ final class BridgeClient: ObservableObject {
 
             let ready = await waitForSocket(path: socketPath, timeoutSeconds: 45)
             guard ready else {
-                let stderr = String(data: errPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                stopBridgeProcess()
+                let stderr = (try? String(contentsOf: logURL, encoding: .utf8)) ?? ""
                 lastError = "Timeout aguardando \(socketPath). \(stderr.suffix(400))"
                 statusDetail = "Bridge não abriu o socket a tempo."
                 return
@@ -351,7 +375,7 @@ final class BridgeClient: ObservableObject {
 
     func reloadModel() async {
         do {
-            modelStatus = try await request(method: BridgeRPC.Method.modelReload, params: EmptyParams())
+            modelStatus = try await request(method: BridgeRPC.Method.modelReload, params: EmptyParams(), timeoutSeconds: 660)
             await refreshPipelineStatus()
         } catch {
             lastError = error.localizedDescription
@@ -466,20 +490,33 @@ final class BridgeClient: ObservableObject {
         }
     }
 
-    private func ensureBridgeDependencies(at bridgeDirectory: URL) throws {
-        let nodeModules = bridgeDirectory.appendingPathComponent("node_modules", isDirectory: true)
-        if FileManager.default.fileExists(atPath: nodeModules.path) { return }
-        statusDetail = "npm install no bridge (primeira vez)…"
+    private func ensureBridgeDependencies(at bridgeDirectory: URL, environment: [String: String]) async throws {
+        if FileManager.default.fileExists(atPath: bridgeDirectory.appendingPathComponent("dist/index.js").path),
+           FileManager.default.fileExists(atPath: bridgeDirectory.appendingPathComponent("node_modules/@whiskeysockets/baileys/package.json").path) {
+            return
+        }
+        let tsxPackage = bridgeDirectory.appendingPathComponent("node_modules/tsx/package.json")
+        if FileManager.default.fileExists(atPath: tsxPackage.path) { return }
+        statusDetail = "npm ci no bridge (primeira vez)…"
         let install = Process()
         install.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        install.arguments = ["npm", "install"]
+        install.arguments = ["npm", "ci"]
         install.currentDirectoryURL = bridgeDirectory
-        install.standardOutput = Pipe()
-        install.standardError = Pipe()
-        try install.run()
-        install.waitUntilExit()
-        if install.terminationStatus != 0 {
-            throw BridgeClientError.bootstrapFailed("npm install falhou (código \(install.terminationStatus)).")
+        install.environment = environment
+        install.standardOutput = FileHandle.nullDevice
+        install.standardError = FileHandle.nullDevice
+        // Waiting for npm must not block SwiftUI's main actor.
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            install.terminationHandler = { process in
+                if process.terminationStatus == 0 {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: BridgeClientError.bootstrapFailed(
+                        "npm ci falhou (código \(process.terminationStatus)). Rode npm ci em bridge/ para ver os detalhes."))
+                }
+            }
+            do { try install.run() }
+            catch { continuation.resume(throwing: error) }
         }
     }
 
@@ -518,9 +555,19 @@ final class BridgeClient: ObservableObject {
     }
 
     private func disconnectIPCOnly() {
-        connection?.cancel()
+        let previous = connection
         connection = nil
+        previous?.cancel()
         isConnected = false
+        failPendingRequests(BridgeClientError.notConnected)
+    }
+
+    private func failPendingRequests(_ error: Error) {
+        let requests = pending
+        pending.removeAll()
+        for task in requestTimeouts.values { task.cancel() }
+        requestTimeouts.removeAll()
+        for continuation in requests.values { continuation.resume(throwing: error) }
     }
 
     private func applyChats(_ incoming: [ChatSummary]) {
@@ -535,7 +582,7 @@ final class BridgeClient: ObservableObject {
         chats = merged
     }
 
-    private func request<T: Decodable>(method: String, params: Encodable) async throws -> T {
+    private func request<T: Decodable>(method: String, params: Encodable, timeoutSeconds: Double = 15) async throws -> T {
         guard let connection else {
             throw BridgeClientError.notConnected
         }
@@ -546,6 +593,12 @@ final class BridgeClient: ObservableObject {
 
         let responseData: Data = try await withCheckedThrowingContinuation { cont in
             pending[id] = cont
+            requestTimeouts[id] = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(timeoutSeconds * 1_000_000_000))
+                guard !Task.isCancelled, let self else { return }
+                self.requestTimeouts.removeValue(forKey: id)
+                self.pending.removeValue(forKey: id)?.resume(throwing: BridgeClientError.requestTimedOut(method))
+            }
             connection.send(data)
         }
 
@@ -563,6 +616,7 @@ final class BridgeClient: ObservableObject {
         guard let obj = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { return }
 
         if let id = obj["id"] as? Int, let cont = pending.removeValue(forKey: id) {
+            requestTimeouts.removeValue(forKey: id)?.cancel()
             cont.resume(returning: line)
             return
         }
@@ -636,12 +690,14 @@ enum BridgeClientError: LocalizedError {
     case notConnected
     case emptyResult
     case bootstrapFailed(String)
+    case requestTimedOut(String)
 
     var errorDescription: String? {
         switch self {
         case .notConnected: return "Bridge IPC não conectado"
         case .emptyResult: return "Resultado JSON-RPC vazio"
         case .bootstrapFailed(let msg): return msg
+        case .requestTimedOut(let method): return "Tempo esgotado aguardando \(method). Verifique ou reinicie o bridge."
         }
     }
 }
