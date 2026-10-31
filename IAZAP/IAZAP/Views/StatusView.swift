@@ -7,6 +7,38 @@ struct StatusView: View {
 
     var body: some View {
         Form {
+            Section("Auto-reply (pipeline)") {
+                Toggle("Ativar auto-reply global", isOn: Binding(
+                    get: { store.autoReplyEnabled },
+                    set: { newValue in
+                        Task { await bridge.setGlobalAutoReplyEnabled(newValue) }
+                    }
+                ))
+                .disabled(!bridge.isConnected)
+
+                LabeledContent("Motor") {
+                    Text(bridge.pipelineStatus.engineId)
+                        .font(.body.monospaced())
+                }
+                LabeledContent("Fase") {
+                    Text(bridge.pipelineStatus.phase.label)
+                }
+                LabeledContent("Pendentes") {
+                    Text("\(bridge.pipelineStatus.pendingChats) chat(s)")
+                }
+                LabeledContent("Selecionados") {
+                    Text("\(store.selectedChatIDs.count)")
+                }
+                if let err = bridge.pipelineStatus.lastError {
+                    Text(err)
+                        .foregroundStyle(.red)
+                        .font(.caption)
+                }
+                Text("Só responde em chats com toggle ligado · PT-BR · stub até a Fase 4 (MLX).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("WhatsApp") {
                 LabeledContent("IPC") {
                     Text(bridge.isConnected ? "conectado" : "offline")
@@ -25,9 +57,6 @@ struct StatusView: View {
                             .textSelection(.enabled)
                     }
                 }
-                LabeledContent("Auto-reply JIDs") {
-                    Text("\(store.selectedChatIDs.count)")
-                }
                 if let err = bridge.sessionStatus.lastError ?? bridge.lastError {
                     Text(err)
                         .foregroundStyle(.red)
@@ -35,21 +64,24 @@ struct StatusView: View {
                 }
             }
 
-            Section("Credenciais (local)") {
-                Text(bridge.authDirectoryPath)
+            Section("Credenciais / dados (local)") {
+                Text("Auth: \(bridge.authDirectoryPath)")
                     .font(.caption.monospaced())
                     .textSelection(.enabled)
-                Text("Arquivos Baileys (creds + keys). Apagados em Desconectar conta.")
+                Text("Data: \(bridge.dataDirectoryPath)")
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                Text("Auth = Baileys (apagado no logout). Data = SQLite de contexto do pipeline.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Section("Modelo MLX") {
                 LabeledContent("Estado") {
-                    Text("placeholder — Fase 3")
+                    Text("placeholder — Fase 4")
                         .foregroundStyle(.secondary)
                 }
-                Text("Inferência local com Qwen2.5 (3B/7B 4-bit) entra depois do pipeline de mensagens.")
+                Text("Troque StubReplyEngine por um motor MLX na mesma interface ReplyEngine (bridge).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -79,8 +111,11 @@ struct StatusView: View {
                         Task { await bridge.logoutSession() }
                     }
                     .disabled(!bridge.isConnected)
-                    Button("Sincronizar seleção") {
-                        Task { await bridge.syncSelectionToBridge() }
+                    Button("Sincronizar seleção + pipeline") {
+                        Task {
+                            await bridge.syncSelectionToBridge()
+                            await bridge.syncPipelineConfigToBridge()
+                        }
                     }
                     .disabled(!bridge.isConnected)
                     Button("Desconectar IPC") {
@@ -91,6 +126,31 @@ struct StatusView: View {
                     Text("Processo Node do bridge em execução (filho do app).")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Atividade do pipeline") {
+                if store.pipelineActivities.isEmpty {
+                    Text("Nenhuma ainda. Ative o kill switch, selecione chats e receba mensagens.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(store.pipelineActivities.prefix(12)) { act in
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text(act.kind.label)
+                                    .font(.caption.weight(.semibold))
+                                Spacer()
+                                Text(act.chatId)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            Text(act.detail)
+                                .font(.caption)
+                                .lineLimit(2)
+                        }
+                        .padding(.vertical, 2)
+                    }
                 }
             }
 

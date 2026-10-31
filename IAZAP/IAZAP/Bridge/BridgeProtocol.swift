@@ -1,6 +1,6 @@
 import Foundation
 
-/// Swift mirror of `protocol/types.ts` / PROTOCOL.md (protocolVersion 1, Phase 2 methods).
+/// Swift mirror of `protocol/types.ts` / PROTOCOL.md (protocolVersion 1, Phase 3 pipeline methods).
 enum BridgeRPC {
     static let protocolVersion = 1
     static let clientName = "iazap-macos"
@@ -14,11 +14,18 @@ enum BridgeRPC {
         static let chatsSetAutoReply = "chats.setAutoReply"
         static let chatsSyncSelection = "chats.syncSelection"
         static let messagesSend = "messages.send"
+        static let pipelineGetStatus = "pipeline.getStatus"
+        static let pipelineSetEnabled = "pipeline.setEnabled"
+        static let pipelineConfigure = "pipeline.configure"
+        static let pipelineGetActivity = "pipeline.getActivity"
+        static let pipelineSimulateInbound = "pipeline.simulateInbound"
 
         // Notifications (bridge → app)
         static let qrUpdate = "qr.update"
         static let messagesInbound = "messages.inbound"
         static let chatsUpdated = "chats.updated"
+        static let pipelineStatus = "pipeline.status"
+        static let pipelineActivity = "pipeline.activity"
     }
 }
 
@@ -93,6 +100,35 @@ struct MessagesSendResult: Decodable {
 
 struct QRUpdateParams: Decodable {
     let qr: String?
+}
+
+struct PipelineSetEnabledParams: Encodable {
+    let enabled: Bool
+}
+
+struct PipelineConfigureParams: Encodable {
+    var enabled: Bool?
+    var debounceMs: Int?
+    var cooldownMs: Int?
+    var contextSize: Int?
+    var allowGroups: Bool?
+    var systemPrompt: String?
+}
+
+struct PipelineActivityListResult: Decodable {
+    let activities: [PipelineActivity]
+}
+
+struct PipelineSimulateInboundParams: Encodable {
+    let chatId: String
+    let text: String
+    var fromMe: Bool?
+    var isGroup: Bool?
+}
+
+struct PipelineSimulateInboundResult: Decodable {
+    let ok: Bool
+    let messageId: String
 }
 
 /// Type-erased Encodable wrapper for JSON-RPC params.

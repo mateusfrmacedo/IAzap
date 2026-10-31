@@ -6,6 +6,11 @@ import type {
   ChatsSetAutoReplyParams,
   ChatsSyncSelectionParams,
   MessagesSendParams,
+  PipelineActivity,
+  PipelineConfigureParams,
+  PipelineSetEnabledParams,
+  PipelineSimulateInboundParams,
+  PipelineStatus,
   SessionHelloParams,
   SessionStatus,
 } from "../protocol/types.js";
@@ -48,6 +53,13 @@ export type MethodHandlers = {
   sendMessage: (params: MessagesSendParams) => Promise<{ messageId: string }>;
   reconnect: () => Promise<SessionStatus>;
   logout: () => Promise<SessionStatus>;
+  pipelineGetStatus: () => PipelineStatus;
+  pipelineSetEnabled: (params: PipelineSetEnabledParams) => PipelineStatus;
+  pipelineConfigure: (params: PipelineConfigureParams) => PipelineStatus;
+  pipelineGetActivity: (limit?: number) => { activities: PipelineActivity[] };
+  pipelineSimulateInbound: (
+    params: PipelineSimulateInboundParams,
+  ) => Promise<{ ok: true; messageId: string }>;
 };
 
 export class RpcServer extends EventEmitter {
@@ -208,6 +220,33 @@ export class RpcServer extends EventEmitter {
           throw rpcError(-32602, "Invalid params");
         }
         return await this.handlers.sendMessage(p);
+      }
+      case "pipeline.getStatus":
+        return this.handlers.pipelineGetStatus();
+      case "pipeline.setEnabled": {
+        const p = params as PipelineSetEnabledParams;
+        if (!p || typeof p.enabled !== "boolean") {
+          throw rpcError(-32602, "Invalid params");
+        }
+        return this.handlers.pipelineSetEnabled(p);
+      }
+      case "pipeline.configure": {
+        const p = (params ?? {}) as PipelineConfigureParams;
+        if (typeof p !== "object" || p === null) {
+          throw rpcError(-32602, "Invalid params");
+        }
+        return this.handlers.pipelineConfigure(p);
+      }
+      case "pipeline.getActivity": {
+        const p = (params ?? {}) as { limit?: number };
+        return this.handlers.pipelineGetActivity(p.limit);
+      }
+      case "pipeline.simulateInbound": {
+        const p = params as PipelineSimulateInboundParams;
+        if (!p?.chatId || typeof p.text !== "string") {
+          throw rpcError(-32602, "Invalid params");
+        }
+        return await this.handlers.pipelineSimulateInbound(p);
       }
       default:
         throw rpcError(-32601, `Method not found: ${method}`);

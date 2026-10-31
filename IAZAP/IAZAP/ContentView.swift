@@ -35,6 +35,12 @@ struct ContentView: View {
                     Text(bridge.sessionStatus.state.label)
                         .foregroundStyle(.secondary)
                         .font(.caption)
+                    Text("·")
+                        .foregroundStyle(.tertiary)
+                        .font(.caption)
+                    Text(bridge.pipelineStatus.enabled ? "auto‑reply on" : "auto‑reply off")
+                        .foregroundStyle(bridge.pipelineStatus.enabled ? .green : .secondary)
+                        .font(.caption)
                 }
             }
         }

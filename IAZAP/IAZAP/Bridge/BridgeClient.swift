@@ -1,12 +1,12 @@
 import Foundation
 import Combine
 
-/// JSON-RPC client over a Unix domain socket (Phase 2).
+/// JSON-RPC client over a Unix domain socket (Phase 3).
 ///
 /// Launch model:
 /// 1. Mint token, pick socket path under TMPDIR
-/// 2. Spawn `node` bridge with IAZAP_SOCKET / IAZAP_TOKEN / IAZAP_AUTH
-/// 3. Connect, call `session.hello`, sync selection, subscribe to notifications
+/// 2. Spawn `node` bridge with IAZAP_SOCKET / IAZAP_TOKEN / IAZAP_AUTH / IAZAP_DATA
+/// 3. Connect, call `session.hello`, sync selection + pipeline config, subscribe to notifications
 @MainActor
 final class BridgeClient: ObservableObject {
     @Published var isConnected = false
@@ -16,6 +16,8 @@ final class BridgeClient: ObservableObject {
     @Published var lastError: String?
     @Published var bridgeProcessRunning = false
     @Published var authDirectoryPath: String = BridgeClient.defaultAuthDirectory().path
+    @Published var dataDirectoryPath: String = BridgeClient.defaultDataDirectory().path
+    @Published var pipelineStatus: PipelineStatus = .placeholder
 
     private weak var store: AppStore?
     private var connection: NWUnixConnection?
@@ -39,6 +41,13 @@ final class BridgeClient: ObservableObject {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
         return base.appendingPathComponent("IAZAP/baileys-auth", isDirectory: true)
+    }
+
+    /// SQLite context + pipeline data under Application Support.
+    static func defaultDataDirectory() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
+        return base.appendingPathComponent("IAZAP/data", isDirectory: true)
     }
 
     // MARK: - Public API
@@ -79,6 +88,9 @@ final class BridgeClient: ObservableObject {
             let _: HelloResult = try await request(method: BridgeRPC.Method.sessionHello, params: hello)
             sessionStatus = try await request(method: BridgeRPC.Method.sessionStatus, params: EmptyParams())
             await syncSelectionToBridge()
+            await syncPipelineConfigToBridge()
+            await refreshPipelineStatus()
+            await refreshPipelineActivity()
             await refreshChats()
         } catch {
             lastError = error.localizedDescription
@@ -101,8 +113,11 @@ final class BridgeClient: ObservableObject {
         socketPath = BridgeClient.defaultSocketPath()
 
         let authURL = BridgeClient.defaultAuthDirectory()
+        let dataURL = BridgeClient.defaultDataDirectory()
         try? FileManager.default.createDirectory(at: authURL, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: dataURL, withIntermediateDirectories: true)
         authDirectoryPath = authURL.path
+        dataDirectoryPath = dataURL.path
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -113,6 +128,7 @@ final class BridgeClient: ObservableObject {
         env["IAZAP_SOCKET"] = socketPath
         env["IAZAP_TOKEN"] = sessionToken
         env["IAZAP_AUTH"] = authURL.path
+        env["IAZAP_DATA"] = dataURL.path
         if stubWhatsApp {
             env["IAZAP_STUB_WA"] = "1"
         } else {
@@ -161,7 +177,7 @@ final class BridgeClient: ObservableObject {
         }
     }
 
-    /// Push UserDefaults selection to the bridge so the pipeline can filter later.
+    /// Push UserDefaults selection to the bridge so the pipeline can filter.
     func syncSelectionToBridge() async {
         guard let store, isConnected || connection != nil else { return }
         let ids = Array(store.selectedChatIDs).sorted()
@@ -170,6 +186,57 @@ final class BridgeClient: ObservableObject {
                 method: BridgeRPC.Method.chatsSyncSelection,
                 params: SyncSelectionParams(chatIds: ids)
             )
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func syncPipelineConfigToBridge() async {
+        guard let store, isConnected || connection != nil else { return }
+        do {
+            pipelineStatus = try await request(
+                method: BridgeRPC.Method.pipelineConfigure,
+                params: PipelineConfigureParams(
+                    enabled: store.autoReplyEnabled,
+                    debounceMs: store.debounceMs,
+                    cooldownMs: store.cooldownMs,
+                    contextSize: store.contextMessageCount,
+                    allowGroups: false,
+                    systemPrompt: store.systemPromptPT
+                )
+            )
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func setGlobalAutoReplyEnabled(_ enabled: Bool) async {
+        store?.autoReplyEnabled = enabled
+        do {
+            pipelineStatus = try await request(
+                method: BridgeRPC.Method.pipelineSetEnabled,
+                params: PipelineSetEnabledParams(enabled: enabled)
+            )
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func refreshPipelineStatus() async {
+        do {
+            pipelineStatus = try await request(method: BridgeRPC.Method.pipelineGetStatus, params: EmptyParams())
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func refreshPipelineActivity() async {
+        do {
+            let result: PipelineActivityListResult = try await request(
+                method: BridgeRPC.Method.pipelineGetActivity,
+                params: ActivityLimitParams(limit: 40)
+            )
+            store?.replacePipelineActivities(result.activities)
         } catch {
             lastError = error.localizedDescription
         }
@@ -216,6 +283,9 @@ final class BridgeClient: ObservableObject {
     // MARK: - Internals
 
     private struct EmptyParams: Encodable {}
+    private struct ActivityLimitParams: Encodable {
+        let limit: Int
+    }
     private struct HelloResult: Decodable {
         let ok: Bool
         let protocolVersion: Int
@@ -296,6 +366,15 @@ final class BridgeClient: ObservableObject {
         case BridgeRPC.Method.messagesInbound:
             if let p = try? JSONDecoder().decode(InboundMessage.self, from: paramsData) {
                 store?.recordInbound(p)
+            }
+        case BridgeRPC.Method.pipelineStatus:
+            if let p = try? JSONDecoder().decode(PipelineStatus.self, from: paramsData) {
+                pipelineStatus = p
+                store?.autoReplyEnabled = p.enabled
+            }
+        case BridgeRPC.Method.pipelineActivity:
+            if let p = try? JSONDecoder().decode(PipelineActivity.self, from: paramsData) {
+                store?.recordPipelineActivity(p)
             }
         default:
             break

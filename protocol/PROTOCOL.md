@@ -1,4 +1,4 @@
-# IAZAP Bridge Protocol (Phase 2)
+# IAZAP Bridge Protocol (Phase 3)
 
 JSON-RPC 2.0 over a **Unix domain socket** (preferred) or TCP `127.0.0.1` with a session token.
 
@@ -11,7 +11,7 @@ JSON-RPC 2.0 over a **Unix domain socket** (preferred) or TCP `127.0.0.1` with a
 | Auth | First request after connect must be `session.hello` with `token` minted by the app |
 | Encoding | UTF-8 |
 
-The macOS app launches the Node bridge as a child process, writes the socket path + token + auth dir to env (`IAZAP_SOCKET`, `IAZAP_TOKEN`, `IAZAP_AUTH`), then connects as JSON-RPC client.
+The macOS app launches the Node bridge as a child process, writes the socket path + token + auth dir to env (`IAZAP_SOCKET`, `IAZAP_TOKEN`, `IAZAP_AUTH`, `IAZAP_DATA`), then connects as JSON-RPC client.
 
 Direction model:
 
@@ -109,7 +109,7 @@ Pushed when the bridge chat cache changes (upsert/update/inbound).
 **Params:** `{ "chatId": string, "enabled": boolean }`  
 **Result:** `{ "ok": true, "chatId": string, "enabled": boolean }`
 
-The Swift `AppStore` / UserDefaults remains the selection source of truth. The bridge mirrors flags so the future message pipeline can filter.
+The Swift `AppStore` / UserDefaults remains the selection source of truth. The bridge mirrors flags so the message pipeline can filter.
 
 ### `chats.syncSelection`
 
@@ -130,14 +130,111 @@ Bulk replace the mirrored selection set (enabled JIDs only). Call after `session
 }
 ```
 
-Text-only. Media is ignored by the bridge (or omitted).
+Text-only. Media is ignored by the bridge (or omitted). The bridge also feeds this into the auto-reply pipeline.
 
 ### `messages.send`
 
 **Params:** `{ "chatId": string, "text": string }`  
 **Result:** `{ "messageId": string }`
 
-Manual/test send. Auto-send pipeline is out of scope until Phase 3+.
+Manual/test send. The Phase 3 pipeline also calls the same Baileys path internally after generating a stub (or future MLX) reply.
+
+## Pipeline (Phase 3)
+
+Auto-reply runs **inside the bridge**:
+
+1. Persist inbound text (SQLite under `IAZAP_DATA`)
+2. Filter: `fromMe`, groups (off by default), chat not in selection, global kill switch
+3. Debounce per chat → build context window → `ReplyEngine.generate` → send
+4. Cooldown per chat after a successful send (anti-loop / rate)
+
+`StubReplyEngine` (`engineId: "stub"`) returns a short **Portuguese** placeholder. Phase 4 swaps in MLX behind the same `ReplyEngine` interface — no protocol change required for the swap itself.
+
+### `pipeline.getStatus`
+
+**Params:** `{}`  
+**Result:** `PipelineStatus`
+
+```ts
+type PipelineStatus = {
+  enabled: boolean;          // global kill switch
+  engineId: string;          // "stub" (Phase 3) | future "mlx-..."
+  phase: "idle" | "debouncing" | "generating" | "sending" | "cooldown" | "error";
+  debounceMs: number;
+  cooldownMs: number;
+  contextSize: number;
+  allowGroups: boolean;
+  selectedCount: number;
+  pendingChats: number;
+  lastActivityAt: number | null;
+  lastError: string | null;
+}
+```
+
+Also pushed as notification `pipeline.status` when phase / enabled / config changes.
+
+### `pipeline.setEnabled`
+
+Global kill switch (does **not** clear chat selection).
+
+**Params:** `{ "enabled": boolean }`  
+**Result:** `PipelineStatus`
+
+### `pipeline.configure`
+
+Partial update of knobs (+ optional `enabled`).
+
+**Params:**
+
+```ts
+{
+  enabled?: boolean;
+  debounceMs?: number;
+  cooldownMs?: number;
+  contextSize?: number;   // 1..40
+  allowGroups?: boolean;
+  systemPrompt?: string;  // PT-BR system prompt for the engine
+}
+```
+
+**Result:** `PipelineStatus`
+
+### `pipeline.getActivity`
+
+**Params:** `{ "limit"?: number }`  
+**Result:** `{ "activities": PipelineActivity[] }` (newest first)
+
+```ts
+type PipelineActivity = {
+  id: string;
+  at: number;
+  kind:
+    | "inbound"
+    | "skipped_from_me"
+    | "skipped_not_selected"
+    | "skipped_group"
+    | "skipped_disabled"
+    | "skipped_cooldown"
+    | "debounced"
+    | "generated"
+    | "sent"
+    | "error";
+  chatId: string;
+  detail: string;
+  messageId?: string;
+}
+```
+
+### `pipeline.activity` (notification only)
+
+Pushed for each activity entry (same shape as one `PipelineActivity`).
+
+### `pipeline.simulateInbound`
+
+Dev / stub helper: inject a text inbound into the pipeline (and notify `messages.inbound`). Useful with `IAZAP_STUB_WA=1` where send is faked locally.
+
+**Params:** `{ "chatId": string, "text": string, "fromMe"?: boolean, "isGroup"?: boolean }`  
+**Result:** `{ "ok": true, "messageId": string }`
 
 ## Error codes
 
@@ -151,20 +248,18 @@ Manual/test send. Auto-send pipeline is out of scope until Phase 3+.
 | `-32010` | WhatsApp not connected |
 | `-32000` | Generic bridge error |
 
-## Auth files
+## Auth / data files
 
-Baileys multi-file creds live under `IAZAP_AUTH`:
+| Env | Default (macOS) | Contents |
+|---|---|---|
+| `IAZAP_AUTH` | `~/Library/Application Support/IAZAP/baileys-auth` | Baileys multi-file creds |
+| `IAZAP_DATA` | `~/Library/Application Support/IAZAP/data` | `messages.sqlite` context store |
 
-| Platform | Default |
-|---|---|
-| macOS | `~/Library/Application Support/IAZAP/baileys-auth` |
-| other | `~/.iazap/baileys-auth` |
-
-`session.logout` deletes contents of that directory.
+`session.logout` deletes contents of `IAZAP_AUTH` only (message DB kept unless the user wipes Application Support).
 
 ## Versioning
 
-`protocolVersion: 1` — Phase 2 adds methods/notifications without breaking Phase 1 clients that ignore unknown notifications. Shared types live in:
+`protocolVersion: 1` — Phase 3 adds pipeline methods/notifications without breaking Phase 1–2 clients that ignore unknown notifications. Shared types live in:
 
 - `protocol/types.ts` (TypeScript source of truth for the bridge)
 - `IAZAP/IAZAP/Bridge/BridgeProtocol.swift` (Swift mirror)

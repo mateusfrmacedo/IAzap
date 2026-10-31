@@ -61,3 +61,88 @@ struct InboundMessage: Identifiable, Codable, Hashable, Sendable {
 
     var id: String { messageId }
 }
+
+enum PipelinePhase: String, Codable, Sendable {
+    case idle
+    case debouncing
+    case generating
+    case sending
+    case cooldown
+    case error
+
+    var label: String {
+        switch self {
+        case .idle: return "Ocioso"
+        case .debouncing: return "Debounce"
+        case .generating: return "Gerando"
+        case .sending: return "Enviando"
+        case .cooldown: return "Cooldown"
+        case .error: return "Erro"
+        }
+    }
+}
+
+struct PipelineStatus: Codable, Hashable, Sendable {
+    var enabled: Bool
+    var engineId: String
+    var phase: PipelinePhase
+    var debounceMs: Int
+    var cooldownMs: Int
+    var contextSize: Int
+    var allowGroups: Bool
+    var selectedCount: Int
+    var pendingChats: Int
+    var lastActivityAt: Double?
+    var lastError: String?
+
+    static let placeholder = PipelineStatus(
+        enabled: false,
+        engineId: "stub",
+        phase: .idle,
+        debounceMs: 3000,
+        cooldownMs: 15000,
+        contextSize: 12,
+        allowGroups: false,
+        selectedCount: 0,
+        pendingChats: 0,
+        lastActivityAt: nil,
+        lastError: nil
+    )
+}
+
+enum PipelineActivityKind: String, Codable, Sendable {
+    case inbound
+    case skippedFromMe = "skipped_from_me"
+    case skippedNotSelected = "skipped_not_selected"
+    case skippedGroup = "skipped_group"
+    case skippedDisabled = "skipped_disabled"
+    case skippedCooldown = "skipped_cooldown"
+    case debounced
+    case generated
+    case sent
+    case error
+
+    var label: String {
+        switch self {
+        case .inbound: return "Inbound"
+        case .skippedFromMe: return "Skip fromMe"
+        case .skippedNotSelected: return "Skip (não selecionado)"
+        case .skippedGroup: return "Skip grupo"
+        case .skippedDisabled: return "Skip (kill switch)"
+        case .skippedCooldown: return "Skip cooldown"
+        case .debounced: return "Debounce"
+        case .generated: return "Gerado"
+        case .sent: return "Enviado"
+        case .error: return "Erro"
+        }
+    }
+}
+
+struct PipelineActivity: Identifiable, Codable, Hashable, Sendable {
+    var id: String
+    var at: Double
+    var kind: PipelineActivityKind
+    var chatId: String
+    var detail: String
+    var messageId: String?
+}

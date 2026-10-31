@@ -33,7 +33,7 @@ struct ChatListView: View {
             .padding([.horizontal, .top], 28)
             .padding(.bottom, 12)
 
-            Text("Ative auto-reply só nas conversas desejadas. A seleção fica em UserDefaults e é espelhada no bridge.")
+            Text("Ative auto-reply só nas conversas desejadas. Também é preciso ligar o kill switch global em Status/Ajustes.")
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 28)
                 .padding(.bottom, 8)

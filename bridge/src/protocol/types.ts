@@ -1,5 +1,5 @@
 /**
- * IAZAP shared IPC types — protocolVersion 1 (Phase 2 additive methods).
+ * IAZAP shared IPC types — protocolVersion 1 (Phase 3 additive: pipeline).
  * Keep in sync with ../../protocol/types.ts
  */
 
@@ -63,6 +63,71 @@ export interface MessagesSendParams {
   text: string;
 }
 
+/** Global auto-reply kill switch + timing knobs. */
+export interface PipelineConfigureParams {
+  enabled?: boolean;
+  debounceMs?: number;
+  cooldownMs?: number;
+  contextSize?: number;
+  allowGroups?: boolean;
+  systemPrompt?: string;
+}
+
+export interface PipelineSetEnabledParams {
+  enabled: boolean;
+}
+
+/** Dev/stub: inject an inbound text event into the pipeline. */
+export interface PipelineSimulateInboundParams {
+  chatId: string;
+  text: string;
+  fromMe?: boolean;
+  isGroup?: boolean;
+}
+
+export type PipelinePhase =
+  | "idle"
+  | "debouncing"
+  | "generating"
+  | "sending"
+  | "cooldown"
+  | "error";
+
+export interface PipelineStatus {
+  enabled: boolean;
+  engineId: string;
+  phase: PipelinePhase;
+  debounceMs: number;
+  cooldownMs: number;
+  contextSize: number;
+  allowGroups: boolean;
+  selectedCount: number;
+  pendingChats: number;
+  lastActivityAt: number | null;
+  lastError: string | null;
+}
+
+export type PipelineActivityKind =
+  | "inbound"
+  | "skipped_from_me"
+  | "skipped_not_selected"
+  | "skipped_group"
+  | "skipped_disabled"
+  | "skipped_cooldown"
+  | "debounced"
+  | "generated"
+  | "sent"
+  | "error";
+
+export interface PipelineActivity {
+  id: string;
+  at: number;
+  kind: PipelineActivityKind;
+  chatId: string;
+  detail: string;
+  messageId?: string;
+}
+
 /** Method names */
 export type RequestMethod =
   | "session.hello"
@@ -72,12 +137,19 @@ export type RequestMethod =
   | "chats.list"
   | "chats.setAutoReply"
   | "chats.syncSelection"
-  | "messages.send";
+  | "messages.send"
+  | "pipeline.getStatus"
+  | "pipeline.setEnabled"
+  | "pipeline.configure"
+  | "pipeline.getActivity"
+  | "pipeline.simulateInbound";
 
 export type NotificationMethod =
   | "qr.update"
   | "messages.inbound"
   | "session.status"
-  | "chats.updated";
+  | "chats.updated"
+  | "pipeline.status"
+  | "pipeline.activity";
 
 export type RpcMethod = RequestMethod | NotificationMethod;

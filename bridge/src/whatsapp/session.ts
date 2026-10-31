@@ -1,8 +1,8 @@
 /**
- * Baileys WhatsApp session (Phase 2).
+ * Baileys WhatsApp session (Phase 2+).
  *
  * QR pairing, reconnect/logout, chat list + auto-reply mirror.
- * Auto-reply pipeline / MLX remain out of scope.
+ * Auto-reply orchestration lives in `pipeline/` (Phase 3); MLX is Phase 4.
  */
 
 import makeWASocket, {
