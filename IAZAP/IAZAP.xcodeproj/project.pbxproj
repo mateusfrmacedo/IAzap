@@ -1,0 +1,346 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A30000000000000000000101 /* IAZAPApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000101 /* IAZAPApp.swift */; };
+		A30000000000000000000102 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000102 /* ContentView.swift */; };
+		A30000000000000000000201 /* BridgeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000201 /* BridgeClient.swift */; };
+		A30000000000000000000202 /* BridgeProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000202 /* BridgeProtocol.swift */; };
+		A30000000000000000000203 /* NWUnixConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000203 /* NWUnixConnection.swift */; };
+		A30000000000000000000204 /* BridgeLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000204 /* BridgeLocator.swift */; };
+		A30000000000000000000301 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000301 /* Models.swift */; };
+		A30000000000000000000401 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000401 /* AppStore.swift */; };
+		A30000000000000000000501 /* ChatListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000501 /* ChatListView.swift */; };
+		A30000000000000000000502 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000502 /* OnboardingView.swift */; };
+		A30000000000000000000503 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000503 /* SettingsView.swift */; };
+		A30000000000000000000504 /* StatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000504 /* StatusView.swift */; };
+		A30000000000000000000505 /* QRCodeImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000505 /* QRCodeImage.swift */; };
+		A30000000000000000000601 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000601 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A20000000000000000000101 /* IAZAPApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IAZAPApp.swift; sourceTree = "<group>"; };
+		A20000000000000000000102 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A20000000000000000000103 /* IAZAP.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IAZAP.entitlements; sourceTree = "<group>"; };
+		A20000000000000000000201 /* BridgeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeClient.swift; sourceTree = "<group>"; };
+		A20000000000000000000202 /* BridgeProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeProtocol.swift; sourceTree = "<group>"; };
+		A20000000000000000000203 /* NWUnixConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NWUnixConnection.swift; sourceTree = "<group>"; };
+		A20000000000000000000204 /* BridgeLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeLocator.swift; sourceTree = "<group>"; };
+		A20000000000000000000301 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A20000000000000000000401 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		A20000000000000000000501 /* ChatListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatListView.swift; sourceTree = "<group>"; };
+		A20000000000000000000502 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		A20000000000000000000503 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A20000000000000000000504 /* StatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusView.swift; sourceTree = "<group>"; };
+		A20000000000000000000505 /* QRCodeImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeImage.swift; sourceTree = "<group>"; };
+		A20000000000000000000601 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A10000000000000000000006 /* IAZAP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IAZAP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000000000000000000010 = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000012 /* IAZAP */,
+				A10000000000000000000011 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000000000000000000011 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000006 /* IAZAP.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000012 /* IAZAP */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000101 /* IAZAPApp.swift */,
+				A20000000000000000000102 /* ContentView.swift */,
+				A20000000000000000000103 /* IAZAP.entitlements */,
+				A20000000000000000000601 /* Assets.xcassets */,
+				A10000000000000000000013 /* Bridge */,
+				A10000000000000000000014 /* Models */,
+				A10000000000000000000015 /* Store */,
+				A10000000000000000000016 /* Views */,
+			);
+			path = IAZAP;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000013 /* Bridge */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000201 /* BridgeClient.swift */,
+				A20000000000000000000202 /* BridgeProtocol.swift */,
+				A20000000000000000000203 /* NWUnixConnection.swift */,
+				A20000000000000000000204 /* BridgeLocator.swift */,
+			);
+			path = Bridge;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000014 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000301 /* Models.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000015 /* Store */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000401 /* AppStore.swift */,
+			);
+			path = Store;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000016 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000501 /* ChatListView.swift */,
+				A20000000000000000000502 /* OnboardingView.swift */,
+				A20000000000000000000505 /* QRCodeImage.swift */,
+				A20000000000000000000503 /* SettingsView.swift */,
+				A20000000000000000000504 /* StatusView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000002 /* IAZAP */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000025 /* Build configuration list for PBXNativeTarget "IAZAP" */;
+			buildPhases = (
+				A10000000000000000000007 /* Embed Bridge Path */,
+				A10000000000000000000003 /* Sources */,
+				A10000000000000000000005 /* Frameworks */,
+				A10000000000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IAZAP;
+			productName = IAZAP;
+			productReference = A10000000000000000000006 /* IAZAP.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A10000000000000000000002 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = A10000000000000000000024 /* Build configuration list for PBXProject "IAZAP" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"pt-BR",
+			);
+			mainGroup = A10000000000000000000010;
+			productRefGroup = A10000000000000000000011 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000000000000000000002 /* IAZAP */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10000000000000000000004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A30000000000000000000601 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A10000000000000000000007 /* Embed Bridge Path */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Bridge Path";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/bridge-root.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nBRIDGE_DIR=\"${SRCROOT}/../bridge\"\nRESOURCES=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"${RESOURCES}\"\nif [ -f \"${BRIDGE_DIR}/package.json\" ]; then\n  /bin/echo -n \"${BRIDGE_DIR}\" > \"${RESOURCES}/bridge-root.txt\"\n  echo \"[IAZAP] bridge-root.txt -> ${BRIDGE_DIR}\"\nelse\n  echo \"warning: bridge not found at ${BRIDGE_DIR} — set IAZAP_BRIDGE_DIR at runtime\"\n  /bin/echo -n \"\" > \"${RESOURCES}/bridge-root.txt\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A30000000000000000000101 /* IAZAPApp.swift in Sources */,
+				A30000000000000000000102 /* ContentView.swift in Sources */,
+				A30000000000000000000201 /* BridgeClient.swift in Sources */,
+				A30000000000000000000202 /* BridgeProtocol.swift in Sources */,
+				A30000000000000000000203 /* NWUnixConnection.swift in Sources */,
+				A30000000000000000000204 /* BridgeLocator.swift in Sources */,
+				A30000000000000000000301 /* Models.swift in Sources */,
+				A30000000000000000000401 /* AppStore.swift in Sources */,
+				A30000000000000000000501 /* ChatListView.swift in Sources */,
+				A30000000000000000000502 /* OnboardingView.swift in Sources */,
+				A30000000000000000000505 /* QRCodeImage.swift in Sources */,
+				A30000000000000000000503 /* SettingsView.swift in Sources */,
+				A30000000000000000000504 /* StatusView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A10000000000000000000020 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A10000000000000000000021 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		A10000000000000000000022 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = IAZAP/IAZAP.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = IAZAP;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.iazap.macos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A10000000000000000000023 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = IAZAP/IAZAP.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = IAZAP;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.iazap.macos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000000000000000000024 /* Build configuration list for PBXProject "IAZAP" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000020 /* Debug */,
+				A10000000000000000000021 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000025 /* Build configuration list for PBXNativeTarget "IAZAP" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000022 /* Debug */,
+				A10000000000000000000023 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A10000000000000000000001 /* Project object */;
+}

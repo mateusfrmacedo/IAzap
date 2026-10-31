@@ -1,0 +1,414 @@
+/**
+ * Auto-reply message pipeline (Phase 3).
+ *
+ * Flow: inbound → persist → filter → debounce → context → ReplyEngine → send.
+ * Anti-loop: never reply to fromMe. Cooldown per chat after a successful send.
+ */
+
+import { EventEmitter } from "node:events";
+import type {
+  InboundMessage,
+  PipelineActivity,
+  PipelineActivityKind,
+  PipelineConfigureParams,
+  PipelinePhase,
+  PipelineStatus,
+} from "../protocol/types.js";
+import { MessageStore } from "./messageStore.js";
+import {
+  defaultSystemPrompt,
+  turnsFromStored,
+  type ReplyEngine,
+} from "./replyEngine.js";
+
+export type SendTextFn = (chatId: string, text: string) => Promise<{ messageId: string }>;
+
+export type PipelineDeps = {
+  store: MessageStore;
+  engine: ReplyEngine;
+  sendText: SendTextFn;
+  /** Returns whether chatId is in the selected auto-reply set. */
+  isSelected: (chatId: string) => boolean;
+  selectedCount: () => number;
+  /** Optional: resolve isGroup when simulateInbound does not pass it. */
+  isGroup?: (chatId: string) => boolean;
+};
+
+export type PipelineOptions = {
+  enabled?: boolean;
+  debounceMs?: number;
+  cooldownMs?: number;
+  contextSize?: number;
+  allowGroups?: boolean;
+  systemPrompt?: string;
+  activityLimit?: number;
+};
+
+export class MessagePipeline extends EventEmitter {
+  private store: MessageStore;
+  private engine: ReplyEngine;
+  private sendText: SendTextFn;
+  private isSelected: (chatId: string) => boolean;
+  private selectedCountFn: () => number;
+  private isGroupFn?: (chatId: string) => boolean;
+
+  private enabled: boolean;
+  private debounceMs: number;
+  private cooldownMs: number;
+  private contextSize: number;
+  private allowGroups: boolean;
+  private systemPrompt: string;
+  private activityLimit: number;
+
+  private phase: PipelinePhase = "idle";
+  private lastError: string | null = null;
+  private lastActivityAt: number | null = null;
+  private activity: PipelineActivity[] = [];
+  private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private pendingLatest = new Map<string, InboundMessage>();
+  private lastSentAt = new Map<string, number>();
+  private generation = 0;
+
+  constructor(deps: PipelineDeps, opts: PipelineOptions = {}) {
+    super();
+    this.store = deps.store;
+    this.engine = deps.engine;
+    this.sendText = deps.sendText;
+    this.isSelected = deps.isSelected;
+    this.selectedCountFn = deps.selectedCount;
+    this.isGroupFn = deps.isGroup;
+
+    this.enabled = opts.enabled ?? false;
+    this.debounceMs = opts.debounceMs ?? 3_000;
+    this.cooldownMs = opts.cooldownMs ?? 15_000;
+    this.contextSize = opts.contextSize ?? 12;
+    this.allowGroups = opts.allowGroups ?? false;
+    this.systemPrompt = opts.systemPrompt ?? defaultSystemPrompt();
+    this.activityLimit = opts.activityLimit ?? 80;
+  }
+
+  getStatus(): PipelineStatus {
+    return {
+      enabled: this.enabled,
+      engineId: this.engine.id,
+      phase: this.phase,
+      debounceMs: this.debounceMs,
+      cooldownMs: this.cooldownMs,
+      contextSize: this.contextSize,
+      allowGroups: this.allowGroups,
+      selectedCount: this.selectedCountFn(),
+      pendingChats: this.debounceTimers.size,
+      lastActivityAt: this.lastActivityAt,
+      lastError: this.lastError,
+    };
+  }
+
+  getActivity(limit = 40): PipelineActivity[] {
+    return this.activity.slice(0, Math.max(1, limit));
+  }
+
+  setEnabled(enabled: boolean): PipelineStatus {
+    this.enabled = enabled;
+    if (!enabled) {
+      this.clearDebounces();
+      this.setPhase("idle");
+    }
+    this.emitStatus();
+    this.pushActivity({
+      kind: enabled ? "inbound" : "skipped_disabled",
+      chatId: "*",
+      detail: enabled
+        ? "Auto-reply global ativado"
+        : "Kill switch: auto-reply global desativado",
+    });
+    return this.getStatus();
+  }
+
+  configure(params: PipelineConfigureParams): PipelineStatus {
+    if (typeof params.enabled === "boolean") this.enabled = params.enabled;
+    if (typeof params.debounceMs === "number" && params.debounceMs >= 0) {
+      this.debounceMs = params.debounceMs;
+    }
+    if (typeof params.cooldownMs === "number" && params.cooldownMs >= 0) {
+      this.cooldownMs = params.cooldownMs;
+    }
+    if (typeof params.contextSize === "number" && params.contextSize >= 1) {
+      this.contextSize = Math.min(40, Math.floor(params.contextSize));
+    }
+    if (typeof params.allowGroups === "boolean") this.allowGroups = params.allowGroups;
+    if (typeof params.systemPrompt === "string" && params.systemPrompt.trim()) {
+      this.systemPrompt = params.systemPrompt.trim();
+    }
+    // modelId is handled by ManagedReplyEngine via index.ts / model.configure —
+    // pipeline only stores timing/prompt knobs.
+    if (params.enabled === false) {
+      this.clearDebounces();
+      this.setPhase("idle");
+    }
+    this.emitStatus();
+    return this.getStatus();
+  }
+
+  /** Swap the reply engine (e.g. after MLX becomes available). */
+  setEngine(engine: ReplyEngine): void {
+    this.engine = engine;
+    this.emitStatus();
+  }
+
+  /**
+   * Handle an inbound WhatsApp text message (or simulated).
+   * Always persists + emits activity; may schedule an auto-reply.
+   */
+  handleInbound(msg: InboundMessage, meta?: { isGroup?: boolean }): void {
+    this.store.upsert({
+      chatId: msg.chatId,
+      messageId: msg.messageId,
+      text: msg.text,
+      fromMe: msg.fromMe,
+      direction: msg.fromMe ? "out" : "in",
+      timestamp: msg.timestamp,
+    });
+
+    this.pushActivity({
+      kind: "inbound",
+      chatId: msg.chatId,
+      detail: truncate(msg.text, 100),
+      messageId: msg.messageId,
+    });
+
+    if (msg.fromMe) {
+      this.pushActivity({
+        kind: "skipped_from_me",
+        chatId: msg.chatId,
+        detail: "Ignorado (fromMe / anti-loop)",
+        messageId: msg.messageId,
+      });
+      return;
+    }
+
+    const isGroup =
+      meta?.isGroup ?? this.isGroupFn?.(msg.chatId) ?? msg.chatId.endsWith("@g.us");
+    if (isGroup && !this.allowGroups) {
+      this.pushActivity({
+        kind: "skipped_group",
+        chatId: msg.chatId,
+        detail: "Grupos desabilitados no MVP",
+        messageId: msg.messageId,
+      });
+      return;
+    }
+
+    if (!this.isSelected(msg.chatId)) {
+      this.pushActivity({
+        kind: "skipped_not_selected",
+        chatId: msg.chatId,
+        detail: "Chat não está na seleção de auto-reply",
+        messageId: msg.messageId,
+      });
+      return;
+    }
+
+    if (!this.enabled) {
+      this.pushActivity({
+        kind: "skipped_disabled",
+        chatId: msg.chatId,
+        detail: "Kill switch global desligado",
+        messageId: msg.messageId,
+      });
+      return;
+    }
+
+    this.scheduleReply(msg);
+  }
+
+  /** Record an outbound message we just sent (context + anti-echo). */
+  recordOutbound(chatId: string, messageId: string, text: string, timestamp = Date.now()): void {
+    this.store.upsert({
+      chatId,
+      messageId,
+      text,
+      fromMe: true,
+      direction: "out",
+      timestamp,
+    });
+  }
+
+  private scheduleReply(msg: InboundMessage): void {
+    this.pendingLatest.set(msg.chatId, msg);
+    const existing = this.debounceTimers.get(msg.chatId);
+    if (existing) clearTimeout(existing);
+
+    this.setPhase("debouncing");
+    this.pushActivity({
+      kind: "debounced",
+      chatId: msg.chatId,
+      detail: `Debounce ${this.debounceMs}ms`,
+      messageId: msg.messageId,
+    });
+    this.emitStatus();
+
+    const timer = setTimeout(() => {
+      this.debounceTimers.delete(msg.chatId);
+      const latest = this.pendingLatest.get(msg.chatId);
+      this.pendingLatest.delete(msg.chatId);
+      if (latest) {
+        void this.runReply(latest);
+      } else if (this.debounceTimers.size === 0) {
+        this.setPhase("idle");
+        this.emitStatus();
+      }
+    }, this.debounceMs);
+
+    this.debounceTimers.set(msg.chatId, timer);
+  }
+
+  private async runReply(msg: InboundMessage): Promise<void> {
+    if (!this.enabled) {
+      this.pushActivity({
+        kind: "skipped_disabled",
+        chatId: msg.chatId,
+        detail: "Kill switch durante debounce",
+        messageId: msg.messageId,
+      });
+      this.finishIdleIfQuiet();
+      return;
+    }
+
+    if (!this.isSelected(msg.chatId)) {
+      this.pushActivity({
+        kind: "skipped_not_selected",
+        chatId: msg.chatId,
+        detail: "Seleção removida durante debounce",
+        messageId: msg.messageId,
+      });
+      this.finishIdleIfQuiet();
+      return;
+    }
+
+    const last = this.lastSentAt.get(msg.chatId) ?? 0;
+    const since = Date.now() - last;
+    if (since < this.cooldownMs) {
+      this.pushActivity({
+        kind: "skipped_cooldown",
+        chatId: msg.chatId,
+        detail: `Cooldown ativo (${Math.ceil((this.cooldownMs - since) / 1000)}s restantes)`,
+        messageId: msg.messageId,
+      });
+      this.setPhase("cooldown");
+      this.emitStatus();
+      this.finishIdleIfQuiet();
+      return;
+    }
+
+    const gen = ++this.generation;
+    try {
+      this.setPhase("generating");
+      this.emitStatus();
+
+      const recent = this.store.recent(msg.chatId, this.contextSize);
+      const contextString = this.store.buildContextString(msg.chatId, this.contextSize);
+      const reply = (
+        await this.engine.generate({
+          chatId: msg.chatId,
+          systemPrompt: this.systemPrompt,
+          turns: turnsFromStored(recent),
+          contextString,
+          latestUserText: msg.text,
+        })
+      ).trim();
+
+      if (!reply) {
+        throw new Error("Resposta vazia do motor");
+      }
+
+      this.pushActivity({
+        kind: "generated",
+        chatId: msg.chatId,
+        detail: truncate(reply, 120),
+        messageId: msg.messageId,
+      });
+
+      if (gen !== this.generation) {
+        // Newer inbound superseded this turn before send.
+        return;
+      }
+
+      this.setPhase("sending");
+      this.emitStatus();
+
+      const { messageId } = await this.sendText(msg.chatId, reply);
+      this.recordOutbound(msg.chatId, messageId, reply);
+      this.lastSentAt.set(msg.chatId, Date.now());
+      this.lastError = null;
+
+      this.pushActivity({
+        kind: "sent",
+        chatId: msg.chatId,
+        detail: truncate(reply, 120),
+        messageId,
+      });
+      this.setPhase("idle");
+      this.emitStatus();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.lastError = message;
+      this.setPhase("error");
+      this.pushActivity({
+        kind: "error",
+        chatId: msg.chatId,
+        detail: message,
+        messageId: msg.messageId,
+      });
+      this.emitStatus();
+      this.finishIdleIfQuiet();
+    }
+  }
+
+  private finishIdleIfQuiet(): void {
+    if (this.debounceTimers.size === 0) {
+      this.setPhase(this.lastError && this.phase === "error" ? "error" : "idle");
+      this.emitStatus();
+    }
+  }
+
+  private clearDebounces(): void {
+    for (const t of this.debounceTimers.values()) clearTimeout(t);
+    this.debounceTimers.clear();
+    this.pendingLatest.clear();
+  }
+
+  private setPhase(phase: PipelinePhase): void {
+    this.phase = phase;
+  }
+
+  private emitStatus(): void {
+    this.emit("status", this.getStatus());
+  }
+
+  private pushActivity(partial: {
+    kind: PipelineActivityKind;
+    chatId: string;
+    detail: string;
+    messageId?: string;
+  }): void {
+    const entry: PipelineActivity = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      at: Date.now(),
+      kind: partial.kind,
+      chatId: partial.chatId,
+      detail: partial.detail,
+      messageId: partial.messageId,
+    };
+    this.activity.unshift(entry);
+    if (this.activity.length > this.activityLimit) {
+      this.activity.length = this.activityLimit;
+    }
+    this.lastActivityAt = entry.at;
+    this.emit("activity", entry);
+  }
+}
+
+function truncate(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return s.slice(0, max - 1) + "…";
+}
