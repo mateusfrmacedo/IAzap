@@ -22,7 +22,8 @@ import { WhatsAppSession } from "./whatsapp/session.js";
 import type { Chat, InboundMessage, SessionStatus } from "./protocol/types.js";
 import { MessageStore } from "./pipeline/messageStore.js";
 import { MessagePipeline } from "./pipeline/pipeline.js";
-import { ManagedReplyEngine, resolveEngineMode } from "./pipeline/mlxEngine.js";
+import { resolveEngineMode } from "./pipeline/mlxEngine.js";
+import { SelectableReplyEngine } from "./pipeline/selectableEngine.js";
 import { defaultModelId } from "./pipeline/models.js";
 import type { ModelStatus, PipelineConfigureParams } from "./protocol/types.js";
 
@@ -97,7 +98,7 @@ const stubChats: Chat[] = [
 ];
 
 const messageStore = new MessageStore(path.join(dataDir, "messages.sqlite"));
-const replyEngine = new ManagedReplyEngine({
+const replyEngine = new SelectableReplyEngine({
   mode: resolveEngineMode(),
   modelId: process.env.IAZAP_MLX_MODEL || defaultModelId(),
 });

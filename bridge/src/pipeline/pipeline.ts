@@ -153,6 +153,7 @@ export class MessagePipeline extends EventEmitter {
 
   /** Swap the reply engine (e.g. after MLX becomes available). */
   setEngine(engine: ReplyEngine): void {
+    this.clearDebounces();
     this.engine = engine;
     this.emitStatus();
   }

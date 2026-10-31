@@ -161,6 +161,12 @@ struct ModelStatus: Codable, Hashable, Sendable {
         lastError: nil,
         availableModels: [
             ModelCatalogEntry(
+                id: "apple-intelligence",
+                label: "Apple Intelligence (local)",
+                hfRepo: "",
+                memoryHint: "Requer macOS 26+ e Apple Intelligence ativada."
+            ),
+            ModelCatalogEntry(
                 id: "qwen2.5-7b-instruct-4bit",
                 label: "Qwen2.5-7B Instruct (4-bit)",
                 hfRepo: "mlx-community/Qwen2.5-7B-Instruct-4bit",

@@ -35,6 +35,7 @@ rm -rf "$RESOURCES/mlx-service/.venv" "$RESOURCES/mlx-service/__pycache__"
 # Ad-hoc signature supports local testing. Public distribution requires Developer ID + notarization.
 xattr -cr "$APP"
 codesign --force --sign - "$APP/Contents/Helpers/node"
+codesign --force --sign - "$APP/Contents/Helpers/iazap-apple-engine"
 codesign --force --deep --sign - "$APP"
 codesign --verify --deep --strict "$APP"
 ln -s /Applications "$STAGE/Applications"
@@ -48,7 +49,8 @@ O auto-reply inicia desligado; selecione as conversas e configure o modelo antes
 Esta versão de teste tem assinatura ad-hoc e não é notarizada pela Apple.
 Em outro Mac, o sistema pode exigir aprovação em Ajustes do Sistema > Privacidade e Segurança.
 
-O serviço MLX e os pesos ainda exigem configuração separada, conforme o README do projeto.
+Apple Intelligence está disponível em Ajustes > Inteligência artificial (macOS 26+).
+O serviço MLX e os pesos Qwen exigem configuração separada, conforme o README do projeto.
 Sem o serviço MLX, o motor utiliza respostas de demonstração identificadas como stub.
 https://github.com/mateusfrmacedo/IAzap
 TEXT

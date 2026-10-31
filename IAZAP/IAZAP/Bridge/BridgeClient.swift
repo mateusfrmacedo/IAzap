@@ -37,6 +37,7 @@ final class BridgeClient: ObservableObject {
     private var bridgeProcess: Process?
     private var statusPollTask: Task<Void, Never>?
     private var didBootstrap = false
+    private var isSyncingPreferences = false
 
     func attach(store: AppStore) {
         self.store = store
@@ -119,6 +120,9 @@ final class BridgeClient: ObservableObject {
 
     /// Connect to an already-running bridge (typical during `npm run serve` / `dev`).
     func connect(socketPath: String? = nil, token: String? = nil) async {
+        // Retained bridge defaults must not replace the user's saved model before sync.
+        isSyncingPreferences = true
+        defer { isSyncingPreferences = false }
         if let socketPath { self.socketPath = socketPath }
         if let token { self.sessionToken = token }
         lastError = nil
@@ -221,6 +225,11 @@ final class BridgeClient: ObservableObject {
 
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + (env["PATH"] ?? "/usr/bin:/bin")
+        if let helper = Bundle.main.executableURL?.deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("Helpers/iazap-apple-engine"),
+           FileManager.default.isExecutableFile(atPath: helper.path) {
+            env["IAZAP_APPLE_HELPER"] = helper.path
+        }
         env["IAZAP_SOCKET"] = socketPath
         env["IAZAP_TOKEN"] = sessionToken
         env["IAZAP_AUTH"] = authURL.path
@@ -352,7 +361,7 @@ final class BridgeClient: ObservableObject {
     func refreshModelStatus() async {
         do {
             modelStatus = try await request(method: BridgeRPC.Method.modelGetStatus, params: EmptyParams())
-            if let store, !modelStatus.modelId.isEmpty {
+            if !isSyncingPreferences, let store, !modelStatus.modelId.isEmpty {
                 store.preferredModelId = modelStatus.modelId
             }
         } catch {
@@ -661,7 +670,7 @@ final class BridgeClient: ObservableObject {
         case BridgeRPC.Method.pipelineStatus:
             if let p = try? JSONDecoder().decode(PipelineStatus.self, from: paramsData) {
                 pipelineStatus = p
-                store?.autoReplyEnabled = p.enabled
+                if !isSyncingPreferences { store?.autoReplyEnabled = p.enabled }
             }
         case BridgeRPC.Method.pipelineActivity:
             if let p = try? JSONDecoder().decode(PipelineActivity.self, from: paramsData) {
@@ -670,7 +679,7 @@ final class BridgeClient: ObservableObject {
         case BridgeRPC.Method.modelStatus:
             if let p = try? JSONDecoder().decode(ModelStatus.self, from: paramsData) {
                 modelStatus = p
-                if let store, !p.modelId.isEmpty {
+                if !isSyncingPreferences, let store, !p.modelId.isEmpty {
                     store.preferredModelId = p.modelId
                 }
             }

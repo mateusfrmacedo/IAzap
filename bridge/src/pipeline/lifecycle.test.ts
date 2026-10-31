@@ -92,3 +92,14 @@ it("rechecks chat selection after generation", async (t) => {
   assert.equal(h.sent.length, 0);
   assert.equal(h.pipeline.getStatus().phase, "idle");
 });
+
+it("cancels a reply when the user changes the engine", async (t) => {
+  const h = harness(t);
+  h.receive();
+  await waitFor(() => h.jobs.length === 1);
+  h.pipeline.setEngine({ id: "replacement", generate: async () => "new engine" });
+  h.jobs[0]!.resolve("old engine");
+  await delay(20);
+  assert.equal(h.sent.length, 0);
+  assert.equal(h.pipeline.getStatus().engineId, "replacement");
+});

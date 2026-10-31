@@ -314,3 +314,11 @@ Após `session.hello` autenticado, o servidor reenvia o último estado de
 que já tiver sido emitido. Isso evita perder um QR gerado antes da conexão do app.
 `qr.update` com `qr: null` substitui o código anterior e também é reenviado.
 Clientes ainda não autenticados não recebem notificações.
+
+## Modelo Apple Intelligence
+
+`model.configure` aceita `modelId: "apple-intelligence"`. O status usa
+`backend: "apple"` e `engineId: "apple:foundation-models"`. O mesmo catálogo
+inclui os modelos Qwen/MLX. Para Apple, `model.reload` verifica disponibilidade
+do modelo do sistema, e `serviceUrl` é `null`. A geração Apple indisponível/recusada
+reporta erro e não envia respostas de demonstração. Não altera o protocolo v1.

@@ -146,7 +146,7 @@ export interface ModelCatalogEntry {
 }
 
 export interface ModelStatus {
-  backend: "mlx" | "stub";
+  backend: "mlx" | "stub" | "apple";
   engineId: string;
   modelId: string;
   modelLabel: string;

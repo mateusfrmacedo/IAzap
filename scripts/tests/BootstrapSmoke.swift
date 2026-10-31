@@ -10,6 +10,8 @@ struct BootstrapSmoke {
         let bridge = BridgeClient()
         let store = AppStore()
         store.autoReplyEnabled = false
+        let testApple = ProcessInfo.processInfo.environment["IAZAP_TEST_APPLE"] == "1"
+        store.preferredModelId = testApple ? "apple-intelligence" : AppStore.defaultModelId
         bridge.attach(store: store)
         await bridge.bootstrapOnLaunch(stubWhatsApp: true)
         guard bridge.isConnected, bridge.sessionStatus.state == .connected,
@@ -25,6 +27,16 @@ struct BootstrapSmoke {
                 exit(1)
             }
             print("PASS: bridge resolved inside app bundle")
+        }
+        if testApple {
+            guard bridge.modelStatus.modelId == "apple-intelligence",
+                  bridge.modelStatus.backend == "apple", bridge.modelStatus.state == .ready,
+                  store.preferredModelId == "apple-intelligence" else {
+                print("FAIL: saved Apple model lost during bootstrap: \(bridge.modelStatus)")
+                bridge.disconnect()
+                exit(1)
+            }
+            print("PASS: saved Apple preference survives initial bridge defaults; native model ready")
         }
         print("PASS: cold bootstrap, managed Node, custom socket, authenticated IPC, stub chats")
         bridge.disconnect()

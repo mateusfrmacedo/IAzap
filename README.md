@@ -1,6 +1,6 @@
 # IAZAP
 
-App nativo **macOS** (Apple Silicon) que conecta sua conta WhatsApp pessoal via WhatsApp Web (Baileys), deixa você escolher em quais chats ativar auto-reply, e gera respostas **locais** em português com **Apple MLX** (Qwen2.5 4-bit).
+App nativo **macOS** (Apple Silicon) que conecta sua conta WhatsApp pessoal via WhatsApp Web (Baileys), deixa você escolher em quais chats ativar auto-reply, e gera respostas **locais** em português com **Qwen/MLX** (Qwen2.5 4-bit) ou **Apple Intelligence** (Foundation Models).
 
 > **Aviso:** o bridge usa cliente WhatsApp Web não oficial. Isso pode violar os Termos do WhatsApp/Meta e há risco de banimento da conta. Uso sob sua responsabilidade. Sem afiliação com Meta/WhatsApp. Inferência **não** usa APIs de LLM na nuvem.
 
@@ -66,6 +66,33 @@ python3 -m unittest discover -s mlx-service -v
 O teste nativo usa WhatsApp simulado e diretórios temporários; não pareia contas.
 O bridge conserva o QR mais recente e o reenvia após `session.hello`, inclusive
 quando o cliente conecta depois da geração do código.
+
+## Alternar Apple Intelligence e Qwen / MLX
+
+Em **Ajustes → Inteligência artificial → Modelo**, escolha **Apple Intelligence
+(local)** ou um modelo Qwen e clique em **Aplicar modelo**. A preferência é salva
+para a próxima abertura. A troca cancela respostas antigas ainda em geração.
+
+- **Apple Intelligence**: requer macOS 26+, Mac compatível e Apple Intelligence
+  ativada/preparada nos Ajustes do Sistema. Usa Foundation Models no dispositivo,
+  sem Python ou download de pesos pelo IAZAP. Indisponibilidade e recusas do modelo
+  aparecem como erro; não há troca silenciosa para outro motor.
+- **Qwen / MLX**: continua usando o serviço Python e os pesos configurados localmente.
+  O modelo é carregado sob demanda, ou pelo botão **Carregar modelo**.
+
+O helper nativo Apple é compilado pelo Xcode e incluído no app. Para usar o bridge
+pelo Terminal, compile-o uma vez com `./scripts/build-apple-helper.sh`.
+O app continua compatível com macOS 14+; em versões anteriores ao macOS 26,
+a opção Apple informa que não está disponível.
+
+Teste real dos dois motores, com WhatsApp sempre simulado (requer MLX e Apple prontos):
+
+```bash
+./scripts/build-apple-helper.sh
+node scripts/smoke-engines.mjs
+# Verifica também a preferência Apple no bootstrap nativo:
+IAZAP_TEST_APPLE=1 ./scripts/smoke-package.sh
+```
 
 ## Status
 
