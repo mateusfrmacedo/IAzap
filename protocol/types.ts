@@ -1,5 +1,5 @@
 /**
- * IAZAP shared IPC types — protocolVersion 1 (Phase 3 additive: pipeline).
+ * IAZAP shared IPC types — protocolVersion 1 (Phase 3 pipeline + Phase 4 model.*).
  * Consumed by the Node bridge; mirrored in Swift (BridgeProtocol.swift).
  */
 
@@ -63,7 +63,7 @@ export interface MessagesSendParams {
   text: string;
 }
 
-/** Global auto-reply kill switch + timing knobs. */
+/** Global auto-reply kill switch + timing knobs (+ optional MLX model id). */
 export interface PipelineConfigureParams {
   enabled?: boolean;
   debounceMs?: number;
@@ -71,6 +71,40 @@ export interface PipelineConfigureParams {
   contextSize?: number;
   allowGroups?: boolean;
   systemPrompt?: string;
+  /** Preferred MLX catalog id (e.g. qwen2.5-7b-instruct-4bit). */
+  modelId?: string;
+}
+
+export type ModelLoadState =
+  | "unavailable"
+  | "not_loaded"
+  | "loading"
+  | "ready"
+  | "error"
+  | "fallback_stub";
+
+export interface ModelCatalogEntry {
+  id: string;
+  label: string;
+  hfRepo: string;
+  memoryHint: string;
+}
+
+export interface ModelStatus {
+  backend: "mlx" | "stub";
+  engineId: string;
+  modelId: string;
+  modelLabel: string;
+  state: ModelLoadState;
+  mlxAvailable: boolean;
+  serviceUrl: string | null;
+  memoryNote: string;
+  lastError: string | null;
+  availableModels: ModelCatalogEntry[];
+}
+
+export interface ModelConfigureParams {
+  modelId: string;
 }
 
 export interface PipelineSetEnabledParams {
@@ -142,7 +176,10 @@ export type RequestMethod =
   | "pipeline.setEnabled"
   | "pipeline.configure"
   | "pipeline.getActivity"
-  | "pipeline.simulateInbound";
+  | "pipeline.simulateInbound"
+  | "model.getStatus"
+  | "model.configure"
+  | "model.reload";
 
 export type NotificationMethod =
   | "qr.update"
@@ -150,6 +187,7 @@ export type NotificationMethod =
   | "session.status"
   | "chats.updated"
   | "pipeline.status"
-  | "pipeline.activity";
+  | "pipeline.activity"
+  | "model.status";
 
 export type RpcMethod = RequestMethod | NotificationMethod;

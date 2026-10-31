@@ -6,6 +6,8 @@ import type {
   ChatsSetAutoReplyParams,
   ChatsSyncSelectionParams,
   MessagesSendParams,
+  ModelConfigureParams,
+  ModelStatus,
   PipelineActivity,
   PipelineConfigureParams,
   PipelineSetEnabledParams,
@@ -55,11 +57,16 @@ export type MethodHandlers = {
   logout: () => Promise<SessionStatus>;
   pipelineGetStatus: () => PipelineStatus;
   pipelineSetEnabled: (params: PipelineSetEnabledParams) => PipelineStatus;
-  pipelineConfigure: (params: PipelineConfigureParams) => PipelineStatus;
+  pipelineConfigure: (
+    params: PipelineConfigureParams,
+  ) => PipelineStatus | Promise<PipelineStatus>;
   pipelineGetActivity: (limit?: number) => { activities: PipelineActivity[] };
   pipelineSimulateInbound: (
     params: PipelineSimulateInboundParams,
   ) => Promise<{ ok: true; messageId: string }>;
+  modelGetStatus: () => ModelStatus | Promise<ModelStatus>;
+  modelConfigure: (params: ModelConfigureParams) => Promise<ModelStatus>;
+  modelReload: () => Promise<ModelStatus>;
 };
 
 export class RpcServer extends EventEmitter {
@@ -235,7 +242,7 @@ export class RpcServer extends EventEmitter {
         if (typeof p !== "object" || p === null) {
           throw rpcError(-32602, "Invalid params");
         }
-        return this.handlers.pipelineConfigure(p);
+        return await this.handlers.pipelineConfigure(p);
       }
       case "pipeline.getActivity": {
         const p = (params ?? {}) as { limit?: number };
@@ -248,6 +255,17 @@ export class RpcServer extends EventEmitter {
         }
         return await this.handlers.pipelineSimulateInbound(p);
       }
+      case "model.getStatus":
+        return await this.handlers.modelGetStatus();
+      case "model.configure": {
+        const p = params as ModelConfigureParams;
+        if (!p?.modelId || typeof p.modelId !== "string") {
+          throw rpcError(-32602, "Invalid params");
+        }
+        return await this.handlers.modelConfigure(p);
+      }
+      case "model.reload":
+        return await this.handlers.modelReload();
       default:
         throw rpcError(-32601, `Method not found: ${method}`);
     }

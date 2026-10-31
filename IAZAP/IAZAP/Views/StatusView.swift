@@ -34,7 +34,7 @@ struct StatusView: View {
                         .foregroundStyle(.red)
                         .font(.caption)
                 }
-                Text("Só responde em chats com toggle ligado · PT-BR · stub até a Fase 4 (MLX).")
+                Text("Só responde em chats com toggle ligado · respostas em português.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -78,12 +78,33 @@ struct StatusView: View {
 
             Section("Modelo MLX") {
                 LabeledContent("Estado") {
-                    Text("placeholder — Fase 4")
-                        .foregroundStyle(.secondary)
+                    Text(bridge.modelStatus.state.label)
                 }
-                Text("Troque StubReplyEngine por um motor MLX na mesma interface ReplyEngine (bridge).")
+                LabeledContent("Modelo") {
+                    Text(bridge.modelStatus.modelLabel)
+                }
+                LabeledContent("Backend") {
+                    Text("\(bridge.modelStatus.backend) · \(bridge.modelStatus.engineId)")
+                        .font(.caption.monospaced())
+                }
+                Text(bridge.modelStatus.memoryNote)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if let err = bridge.modelStatus.lastError {
+                    Text(err)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+                HStack {
+                    Button("Atualizar modelo") {
+                        Task { await bridge.refreshModelStatus() }
+                    }
+                    .disabled(!bridge.isConnected)
+                    Button("Reload pesos") {
+                        Task { await bridge.reloadModel() }
+                    }
+                    .disabled(!bridge.isConnected)
+                }
             }
 
             Section("Conectar") {

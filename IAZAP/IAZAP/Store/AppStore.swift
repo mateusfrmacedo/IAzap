@@ -12,6 +12,18 @@ final class AppStore: ObservableObject {
     private static let autoReplyEnabledKey = "iazap.autoReplyEnabled"
     private static let debounceKey = "iazap.debounceMs"
     private static let cooldownKey = "iazap.cooldownMs"
+    private static let modelIdKey = "iazap.modelId"
+    private static let tosAcceptedKey = "iazap.tosRiskAccepted"
+
+    static let defaultSystemPromptPT =
+        "Você é o assistente de auto-resposta do IAZAP no WhatsApp. " +
+        "Responda SEMPRE em português do Brasil. " +
+        "Use o histórico da conversa para manter o contexto. " +
+        "Seja breve, natural e no tom de mensagem de WhatsApp (curto). " +
+        "Não invente fatos. Não mencione que você é uma IA, salvo se perguntarem. " +
+        "Não use markdown elaborado. Uma ou poucas frases bastam."
+
+    static let defaultModelId = "qwen2.5-7b-instruct-4bit"
 
     @Published private(set) var selectedChatIDs: Set<String> {
         didSet { persistSelection() }
@@ -38,6 +50,16 @@ final class AppStore: ObservableObject {
         didSet { UserDefaults.standard.set(cooldownMs, forKey: Self.cooldownKey) }
     }
 
+    /// Preferred MLX catalog model id (mirrored to bridge via model.configure / pipeline.configure).
+    @Published var preferredModelId: String {
+        didSet { UserDefaults.standard.set(preferredModelId, forKey: Self.modelIdKey) }
+    }
+
+    /// User acknowledged WhatsApp ToS / ban risk in onboarding.
+    @Published var tosRiskAccepted: Bool {
+        didSet { UserDefaults.standard.set(tosRiskAccepted, forKey: Self.tosAcceptedKey) }
+    }
+
     /// Recent inbound messages for UI (bridge also persists to SQLite).
     @Published var recentInbound: [InboundMessage] = []
 
@@ -49,13 +71,15 @@ final class AppStore: ObservableObject {
         selectedChatIDs = Set(saved)
         autoReplyEnabled = UserDefaults.standard.bool(forKey: Self.autoReplyEnabledKey)
         systemPromptPT = UserDefaults.standard.string(forKey: Self.systemPromptKey)
-            ?? "Você é um assistente que responde no WhatsApp em português do Brasil. Seja breve e natural."
+            ?? Self.defaultSystemPromptPT
         let ctx = UserDefaults.standard.integer(forKey: Self.contextSizeKey)
         contextMessageCount = ctx > 0 ? ctx : 12
         let deb = UserDefaults.standard.integer(forKey: Self.debounceKey)
         debounceMs = deb > 0 ? deb : 3000
         let cool = UserDefaults.standard.integer(forKey: Self.cooldownKey)
         cooldownMs = cool > 0 ? cool : 15000
+        preferredModelId = UserDefaults.standard.string(forKey: Self.modelIdKey) ?? Self.defaultModelId
+        tosRiskAccepted = UserDefaults.standard.bool(forKey: Self.tosAcceptedKey)
     }
 
     func isAutoReplyEnabled(for chatID: String) -> Bool {

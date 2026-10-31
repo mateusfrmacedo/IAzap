@@ -1,5 +1,5 @@
 /**
- * IAZAP WhatsApp bridge entrypoint (Phase 3).
+ * IAZAP WhatsApp bridge entrypoint (Phase 4 — MLX + pipeline).
  *
  * Env:
  *   IAZAP_SOCKET  — Unix socket path (default: $TMPDIR/iazap-bridge.sock)
@@ -9,6 +9,9 @@
  *   IAZAP_DATA    — SQLite + pipeline data dir
  *                   (default: ~/Library/Application Support/IAZAP/data on macOS)
  *   IAZAP_STUB_WA — if "1", skip real Baileys connect (UI/IPC smoke only)
+ *   IAZAP_ENGINE  — auto | mlx | stub (default auto: MLX if mlx-service up)
+ *   IAZAP_MLX_URL — mlx-service base URL (default http://127.0.0.1:8742)
+ *   IAZAP_MLX_MODEL — preferred catalog model id
  */
 
 import os from "node:os";
@@ -19,7 +22,9 @@ import { WhatsAppSession } from "./whatsapp/session.js";
 import type { Chat, InboundMessage, SessionStatus } from "./protocol/types.js";
 import { MessageStore } from "./pipeline/messageStore.js";
 import { MessagePipeline } from "./pipeline/pipeline.js";
-import { StubReplyEngine } from "./pipeline/replyEngine.js";
+import { ManagedReplyEngine, resolveEngineMode } from "./pipeline/mlxEngine.js";
+import { defaultModelId } from "./pipeline/models.js";
+import type { ModelStatus, PipelineConfigureParams } from "./protocol/types.js";
 
 function defaultAuthDir(): string {
   if (process.platform === "darwin") {
@@ -92,7 +97,10 @@ const stubChats: Chat[] = [
 ];
 
 const messageStore = new MessageStore(path.join(dataDir, "messages.sqlite"));
-const replyEngine = new StubReplyEngine();
+const replyEngine = new ManagedReplyEngine({
+  mode: resolveEngineMode(),
+  modelId: process.env.IAZAP_MLX_MODEL || defaultModelId(),
+});
 
 function getStatus(): SessionStatus {
   return session ? session.getStatus() : { ...stubStatus };
@@ -215,7 +223,10 @@ const rpc = new RpcServer(token, {
   },
   pipelineGetStatus: () => pipeline.getStatus(),
   pipelineSetEnabled: ({ enabled }) => pipeline.setEnabled(enabled),
-  pipelineConfigure: (params) => pipeline.configure(params),
+  pipelineConfigure: async (params) => {
+    await applyModelFromPipelineConfig(params);
+    return pipeline.configure(params);
+  },
   pipelineGetActivity: (limit) => ({ activities: pipeline.getActivity(limit) }),
   pipelineSimulateInbound: async ({ chatId, text, fromMe, isGroup }) => {
     const messageId = `sim-${Date.now()}`;
@@ -239,7 +250,34 @@ const rpc = new RpcServer(token, {
     }
     return { ok: true as const, messageId };
   },
+  modelGetStatus: async () => replyEngine.getStatus(),
+  modelConfigure: async ({ modelId }) => {
+    const status = await replyEngine.setModelId(modelId);
+    pipeline.setEngine(replyEngine);
+    rpc.notify("model.status", status);
+    rpc.notify("pipeline.status", pipeline.getStatus());
+    return status;
+  },
+  modelReload: async () => {
+    const status = await replyEngine.reload();
+    pipeline.setEngine(replyEngine);
+    rpc.notify("model.status", status);
+    rpc.notify("pipeline.status", pipeline.getStatus());
+    return status;
+  },
 });
+
+async function applyModelFromPipelineConfig(params: PipelineConfigureParams): Promise<void> {
+  if (typeof params.modelId === "string" && params.modelId.trim()) {
+    const status = await replyEngine.setModelId(params.modelId.trim());
+    pipeline.setEngine(replyEngine);
+    rpc.notify("model.status", status);
+  }
+}
+
+function notifyModelStatus(status: ModelStatus): void {
+  rpc.notify("model.status", status);
+}
 
 pipeline.on("status", (status) => {
   rpc.notify("pipeline.status", status);
@@ -266,10 +304,16 @@ function wireSession(s: WhatsAppSession): WhatsAppSession {
 }
 
 async function main(): Promise<void> {
+  const modelStatus = await replyEngine.refresh();
+  pipeline.setEngine(replyEngine);
+
   await rpc.listen(socketPath);
   console.error(`[iazap-bridge] listening on ${socketPath}`);
   console.error(`[iazap-bridge] auth dir ${authDir}`);
-  console.error(`[iazap-bridge] data dir ${dataDir} (engine=${replyEngine.id})`);
+  console.error(
+    `[iazap-bridge] data dir ${dataDir} (engine=${replyEngine.id} backend=${modelStatus.backend} model=${modelStatus.modelId} state=${modelStatus.state})`,
+  );
+  notifyModelStatus(modelStatus);
 
   if (stubWa) {
     stubStatus = {

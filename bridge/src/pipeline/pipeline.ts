@@ -139,12 +139,20 @@ export class MessagePipeline extends EventEmitter {
     if (typeof params.systemPrompt === "string" && params.systemPrompt.trim()) {
       this.systemPrompt = params.systemPrompt.trim();
     }
+    // modelId is handled by ManagedReplyEngine via index.ts / model.configure —
+    // pipeline only stores timing/prompt knobs.
     if (params.enabled === false) {
       this.clearDebounces();
       this.setPhase("idle");
     }
     this.emitStatus();
     return this.getStatus();
+  }
+
+  /** Swap the reply engine (e.g. after MLX becomes available). */
+  setEngine(engine: ReplyEngine): void {
+    this.engine = engine;
+    this.emitStatus();
   }
 
   /**

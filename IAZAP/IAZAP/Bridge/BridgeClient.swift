@@ -18,6 +18,7 @@ final class BridgeClient: ObservableObject {
     @Published var authDirectoryPath: String = BridgeClient.defaultAuthDirectory().path
     @Published var dataDirectoryPath: String = BridgeClient.defaultDataDirectory().path
     @Published var pipelineStatus: PipelineStatus = .placeholder
+    @Published var modelStatus: ModelStatus = .placeholder
 
     private weak var store: AppStore?
     private var connection: NWUnixConnection?
@@ -91,6 +92,7 @@ final class BridgeClient: ObservableObject {
             await syncPipelineConfigToBridge()
             await refreshPipelineStatus()
             await refreshPipelineActivity()
+            await refreshModelStatus()
             await refreshChats()
         } catch {
             lastError = error.localizedDescription
@@ -202,9 +204,44 @@ final class BridgeClient: ObservableObject {
                     cooldownMs: store.cooldownMs,
                     contextSize: store.contextMessageCount,
                     allowGroups: false,
-                    systemPrompt: store.systemPromptPT
+                    systemPrompt: store.systemPromptPT,
+                    modelId: store.preferredModelId
                 )
             )
+            await refreshModelStatus()
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func refreshModelStatus() async {
+        do {
+            modelStatus = try await request(method: BridgeRPC.Method.modelGetStatus, params: EmptyParams())
+            if let store, !modelStatus.modelId.isEmpty {
+                store.preferredModelId = modelStatus.modelId
+            }
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func configureModel(modelId: String) async {
+        store?.preferredModelId = modelId
+        do {
+            modelStatus = try await request(
+                method: BridgeRPC.Method.modelConfigure,
+                params: ModelConfigureParams(modelId: modelId)
+            )
+            await refreshPipelineStatus()
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    func reloadModel() async {
+        do {
+            modelStatus = try await request(method: BridgeRPC.Method.modelReload, params: EmptyParams())
+            await refreshPipelineStatus()
         } catch {
             lastError = error.localizedDescription
         }
@@ -375,6 +412,13 @@ final class BridgeClient: ObservableObject {
         case BridgeRPC.Method.pipelineActivity:
             if let p = try? JSONDecoder().decode(PipelineActivity.self, from: paramsData) {
                 store?.recordPipelineActivity(p)
+            }
+        case BridgeRPC.Method.modelStatus:
+            if let p = try? JSONDecoder().decode(ModelStatus.self, from: paramsData) {
+                modelStatus = p
+                if let store, !p.modelId.isEmpty {
+                    store.preferredModelId = p.modelId
+                }
             }
         default:
             break

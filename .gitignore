@@ -38,6 +38,11 @@ Package.resolved
 Pods/
 Carthage/Build/
 
+# MLX service (Python)
+mlx-service/.venv/
+mlx-service/**/__pycache__/
+mlx-service/*.pyc
+
 # Node / bridge
 bridge/node_modules/
 bridge/dist/

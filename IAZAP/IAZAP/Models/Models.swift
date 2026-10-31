@@ -110,6 +110,72 @@ struct PipelineStatus: Codable, Hashable, Sendable {
     )
 }
 
+enum ModelLoadState: String, Codable, Sendable {
+    case unavailable
+    case notLoaded = "not_loaded"
+    case loading
+    case ready
+    case error
+    case fallbackStub = "fallback_stub"
+
+    var label: String {
+        switch self {
+        case .unavailable: return "Indisponível"
+        case .notLoaded: return "Não carregado"
+        case .loading: return "Carregando…"
+        case .ready: return "Pronto"
+        case .error: return "Erro"
+        case .fallbackStub: return "Fallback stub"
+        }
+    }
+}
+
+struct ModelCatalogEntry: Identifiable, Codable, Hashable, Sendable {
+    var id: String
+    var label: String
+    var hfRepo: String
+    var memoryHint: String
+}
+
+struct ModelStatus: Codable, Hashable, Sendable {
+    var backend: String
+    var engineId: String
+    var modelId: String
+    var modelLabel: String
+    var state: ModelLoadState
+    var mlxAvailable: Bool
+    var serviceUrl: String?
+    var memoryNote: String
+    var lastError: String?
+    var availableModels: [ModelCatalogEntry]
+
+    static let placeholder = ModelStatus(
+        backend: "stub",
+        engineId: "stub",
+        modelId: "qwen2.5-7b-instruct-4bit",
+        modelLabel: "Qwen2.5-7B Instruct (4-bit)",
+        state: .unavailable,
+        mlxAvailable: false,
+        serviceUrl: "http://127.0.0.1:8742",
+        memoryNote: "Em M1 Pro 16GB: 7B 4-bit precisa de folga de memória; use 3B se houver pressão.",
+        lastError: nil,
+        availableModels: [
+            ModelCatalogEntry(
+                id: "qwen2.5-7b-instruct-4bit",
+                label: "Qwen2.5-7B Instruct (4-bit)",
+                hfRepo: "mlx-community/Qwen2.5-7B-Instruct-4bit",
+                memoryHint: "Default · melhor PT-BR · monitore RAM no M1 Pro 16GB"
+            ),
+            ModelCatalogEntry(
+                id: "qwen2.5-3b-instruct-4bit",
+                label: "Qwen2.5-3B Instruct (4-bit)",
+                hfRepo: "mlx-community/Qwen2.5-3B-Instruct-4bit",
+                memoryHint: "Fallback leve para 16GB"
+            ),
+        ]
+    )
+}
+
 enum PipelineActivityKind: String, Codable, Sendable {
     case inbound
     case skippedFromMe = "skipped_from_me"

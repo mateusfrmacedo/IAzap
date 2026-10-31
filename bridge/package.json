@@ -1,8 +1,8 @@
 {
   "name": "iazap-bridge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "IAZAP WhatsApp sidecar — Baileys + JSON-RPC over Unix socket",
+  "description": "IAZAP WhatsApp sidecar — Baileys + pipeline + MLX ReplyEngine over Unix socket",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

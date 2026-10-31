@@ -1,56 +1,82 @@
 # IAZAP
 
-App nativo **macOS** (Apple Silicon) que conecta sua conta WhatsApp pessoal via WhatsApp Web (Baileys), deixa você escolher em quais chats ativar auto-reply, e (em fases posteriores) gera respostas locais em português com **Apple MLX**.
+App nativo **macOS** (Apple Silicon) que conecta sua conta WhatsApp pessoal via WhatsApp Web (Baileys), deixa você escolher em quais chats ativar auto-reply, e gera respostas **locais** em português com **Apple MLX** (Qwen2.5 4-bit).
 
-> **Aviso:** o bridge usa cliente WhatsApp Web não oficial. Isso pode violar os Termos do WhatsApp/Meta e há risco de banimento da conta. Uso sob sua responsabilidade.
+> **Aviso:** o bridge usa cliente WhatsApp Web não oficial. Isso pode violar os Termos do WhatsApp/Meta e há risco de banimento da conta. Uso sob sua responsabilidade. Sem afiliação com Meta/WhatsApp. Inferência **não** usa APIs de LLM na nuvem.
 
-## Status (Phase 3 — pipeline + send stub)
+## Status (Phase 4 — MLX local + polish)
 
 | Camada | Estado |
 |---|---|
-| SwiftUI macOS (QR, chats, status, kill switch, atividade) | ✅ Phase 3 |
+| SwiftUI macOS (QR, ToS onboarding, chats, status, modelo, kill switch) | ✅ Phase 4 |
 | Node bridge + Baileys + JSON-RPC (Unix socket) | ✅ |
-| Pipeline (filtro, debounce, cooldown, contexto SQLite, send) | ✅ stub engine |
-| Protocolo compartilhado (`protocol/`) | ✅ v1 (+ pipeline) |
-| Inferência MLX | ❌ ainda não (Fase 4) |
+| Pipeline (filtro, debounce, cooldown, contexto SQLite, send) | ✅ |
+| `mlx-service` (Python + mlx-lm) + `ManagedReplyEngine` | ✅ Mac real / stub fallback |
+| Protocolo compartilhado (`protocol/`) | ✅ v1 (+ pipeline + model) |
 
-Arquitetura: **SwiftUI + sidecar Node/Baileys + pipeline local + MLX on-device** (MLX depois).
+Arquitetura: **SwiftUI + sidecar Node/Baileys + pipeline local + mlx-service (mlx-lm) on-device**.
 
 ## Layout do repositório
 
 ```
 IAZAP/                 # App SwiftUI (Xcode)
-  IAZAP.xcodeproj/
-  IAZAP/               # sources
-bridge/                # Sidecar Node + Baileys + pipeline
+bridge/                # Sidecar Node + Baileys + pipeline + MLX client
+mlx-service/           # Helper HTTP local (mlx-lm) — Apple Silicon
 protocol/              # JSON-RPC docs + types (TS; espelhado em Swift)
 ```
 
-## Requisitos (Mac)
+## Requisitos (Mac M1 Pro)
 
 - **Apple Silicon** (alvo: M1 Pro / 16GB+)
-- **macOS 14+** recomendado (mínimo razoável 13+)
-- **Xcode 15+** com toolchain Swift
-- **Node.js 22+** (usa `node:sqlite` para o store de contexto)
+- **macOS 14+** recomendado
+- **Xcode 15+**
+- **Node.js 22+** (`node:sqlite`)
+- **Python 3.10+** com venv para `mlx-service` (Metal)
 
-## Como rodar Phase 3 no Mac
+### Memória (modelo)
 
-### 1. Bridge (Node)
+| Modelo | Id | Nota M1 Pro 16GB |
+|---|---|---|
+| **Qwen2.5-7B Instruct 4-bit** (default) | `qwen2.5-7b-instruct-4bit` | Melhor PT-BR; feche apps pesados |
+| Qwen2.5-3B Instruct 4-bit | `qwen2.5-3b-instruct-4bit` | Fallback se houver pressão de RAM |
+
+## Como rodar no Mac
+
+### 1. MLX service (inferência)
+
+```bash
+cd mlx-service
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Opcional: pré-baixar pesos (precisa rede + ~4–8GB disco)
+python -c "from huggingface_hub import snapshot_download; snapshot_download('mlx-community/Qwen2.5-7B-Instruct-4bit')"
+# ou o 3B:
+# python -c "from huggingface_hub import snapshot_download; snapshot_download('mlx-community/Qwen2.5-3B-Instruct-4bit')"
+
+IAZAP_MLX_AUTOLOAD=1 python server.py
+# escuta http://127.0.0.1:8742
+```
+
+Detalhes: [`mlx-service/README.md`](mlx-service/README.md).
+
+### 2. Bridge (Node)
 
 ```bash
 cd bridge
 npm install
 
-# Sessão Baileys real — pipeline envia via messages.send após stub
+# Motor: auto (MLX se o serviço estiver up; senão stub)
 IAZAP_TOKEN=dev-token-change-me npm run dev
 
-# Smoke IPC + pipeline sem WhatsApp (send fake local)
+# Forçar stub (sem mlx-service)
+IAZAP_ENGINE=stub IAZAP_TOKEN=dev-token-change-me npm run dev
+
+# Smoke IPC + pipeline sem WhatsApp
 IAZAP_STUB_WA=1 IAZAP_TOKEN=dev-token-change-me npm run dev
 
-# Testes unitários do pipeline / store / stub
 npm test
-
-# Smoke E2E IPC (sobe bridge stub, simula inbound, espera "sent")
 npm run smoke:pipeline
 ```
 
@@ -59,52 +85,47 @@ npm run smoke:pipeline
 | `IAZAP_SOCKET` | `$TMPDIR/iazap-bridge.sock` |
 | `IAZAP_TOKEN` | `dev-token-change-me` |
 | `IAZAP_AUTH` | `~/Library/Application Support/IAZAP/baileys-auth` |
-| `IAZAP_DATA` | `~/Library/Application Support/IAZAP/data` (`messages.sqlite`) |
-| `IAZAP_STUB_WA` | unset (Baileys real) |
+| `IAZAP_DATA` | `~/Library/Application Support/IAZAP/data` |
+| `IAZAP_STUB_WA` | unset |
+| `IAZAP_ENGINE` | `auto` (`mlx` \| `stub` \| `auto`) |
+| `IAZAP_MLX_URL` | `http://127.0.0.1:8742` |
+| `IAZAP_MLX_MODEL` | `qwen2.5-7b-instruct-4bit` |
 
-**Credenciais WhatsApp** ficam só em `IAZAP_AUTH`. `session.logout` apaga o conteúdo. O histórico de contexto do pipeline fica em `IAZAP_DATA` (local).
+**Logout** (`session.logout` / UI) apaga só `IAZAP_AUTH`. Contexto SQLite fica em `IAZAP_DATA`.
 
-Detalhes: [`bridge/README.md`](bridge/README.md) · protocolo: [`protocol/PROTOCOL.md`](protocol/PROTOCOL.md)
-
-### 2. App (Xcode)
+### 3. App (Xcode)
 
 ```bash
 open IAZAP/IAZAP.xcodeproj
 ```
 
-1. Scheme **IAZAP** → destino **My Mac**.
-2. Run (⌘R).
-3. Em **Status**:
-   - Com bridge já em `npm run dev`: *Conectar ao socket padrão* (token `dev-token-change-me`).
-   - Ou informe a pasta `…/bridge` e use *Iniciar bridge (WhatsApp real)*.
-4. Em **Parear**: escaneie o QR.
-5. Em **Chats**: ative auto-reply só nos JIDs desejados.
-6. Em **Status / Ajustes**: ligue o **kill switch global** (“Ativar auto-reply global”). Sem isso o pipeline só registra e ignora.
-7. Receba uma mensagem de texto num chat selecionado → após debounce o stub responde em português e envia via Baileys.
+1. Scheme **IAZAP** → **My Mac** → Run.
+2. Em **Parear**: aceite o aviso de risco ToS, conecte o bridge, escaneie o QR.
+3. Em **Chats**: ligue auto-reply só nos JIDs desejados.
+4. Em **Ajustes / Status**: escolha o modelo, **Carregar / reload pesos**, ligue o kill switch global.
+5. Receba texto num chat selecionado → debounce → MLX (ou stub) → envio via Baileys.
 
-Estados de sessão na UI: **desconectado / aguardando QR / conectando / conectado / deslogado / erro**, com **Reconectar** e **Desconectar conta (logout)**. Toolbar mostra `auto-reply on/off`.
+## Stub vs MLX
 
-## Pipeline em uma frase
+| | Stub | MLX |
+|---|---|---|
+| Quando | `IAZAP_ENGINE=stub`, ou `auto` sem mlx-service | mlx-service up no Mac (Metal) |
+| `engineId` | `stub` | `mlx:qwen2.5-…` (ou `mlx-mock:…` com `IAZAP_MLX_MOCK=1`) |
+| Qualidade | Placeholder PT-BR | Qwen2.5 instruct local |
+| CI / Linux VM | ✅ | Mock HTTP ou fallback stub (sem Metal) |
 
-Inbound Baileys → RPC + SQLite → filtra (`fromMe`, grupo, seleção, kill switch) → debounce → contexto → **StubReplyEngine** (PT-BR) → `messages.send`.
+Fluxo: inbound → filtro (seleção + kill switch) → contexto → **`ManagedReplyEngine`** → `messages.send`.
 
-### Stub vs MLX (Fase 4)
+## IPC
 
-No bridge, `ReplyEngine` é a interface:
+JSON-RPC 2.0, newline-delimited, Unix socket. Métodos: sessão, chats, `pipeline.*`, `model.*`. Ver [`protocol/PROTOCOL.md`](protocol/PROTOCOL.md).
 
-- Phase 3: `StubReplyEngine` (`engineId: "stub"`) — placeholder PT-BR com preview do contexto.
-- Phase 4: implementar p.ex. `MLXReplyEngine` com a mesma assinatura `generate(ReplyRequest)` e registrar no lugar do stub em `bridge/src/index.ts`. O app já mostra `engineId` e não precisa mudar o protocolo para a troca do motor.
+## Roadmap
 
-## IPC em uma frase
-
-JSON-RPC 2.0, newline-delimited, sobre **Unix domain socket**. O app autentica com `session.hello` + token (`IAZAP_TOKEN`). Métodos novos: `pipeline.*`.
-
-## Roadmap curto
-
-1. ~~Phase 1 — scaffold UI + bridge + protocolo~~  
-2. ~~Phase 2 — pareamento QR real, lista de chats, toggles, reconnect/logout~~  
-3. **Phase 3 (este PR)** — pipeline (debounce, filtro, anti-loop, contexto) + send stub  
-4. **Phase 4** — MLX (Qwen2.5 3B/7B 4-bit) + polimento  
+1. ~~Phase 1 — scaffold~~  
+2. ~~Phase 2 — QR / chats~~  
+3. ~~Phase 3 — pipeline + stub~~  
+4. **Phase 4 (este PR)** — MLX local + UI de modelo + ToS + docs  
 
 ## Licença / uso
 

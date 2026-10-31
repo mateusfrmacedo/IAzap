@@ -3,12 +3,15 @@ import SwiftUI
 /// QR / multi-device pairing. Renders Baileys `qr.update` payload as a CoreImage QR.
 struct OnboardingView: View {
     @EnvironmentObject private var bridge: BridgeClient
+    @EnvironmentObject private var store: AppStore
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Parear WhatsApp")
                     .font(.largeTitle.weight(.semibold))
+
+                tosDisclaimer
 
                 Text("Abra o WhatsApp no telefone → Aparelhos conectados → Conectar um aparelho, e escaneie o QR abaixo.")
                     .foregroundStyle(.secondary)
@@ -51,11 +54,12 @@ struct OnboardingView: View {
                         Task { await bridge.connect() }
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(!store.tosRiskAccepted)
 
                     Button("Reconectar") {
                         Task { await bridge.reconnectSession() }
                     }
-                    .disabled(!bridge.isConnected)
+                    .disabled(!bridge.isConnected || !store.tosRiskAccepted)
 
                     Button("Desconectar conta") {
                         Task { await bridge.logoutSession() }
@@ -68,13 +72,41 @@ struct OnboardingView: View {
                     .disabled(!bridge.isConnected)
                 }
 
-                Text("Credenciais Baileys ficam locais em:\n\(bridge.authDirectoryPath)")
+                if !store.tosRiskAccepted {
+                    Text("Aceite o aviso de risco acima para habilitar o pareamento.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+
+                Text("Credenciais Baileys ficam locais em:\n\(bridge.authDirectoryPath)\nLogout apaga essa pasta. Inferência MLX é local (sem LLM na nuvem).")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .textSelection(.enabled)
             }
             .padding(28)
         }
+    }
+
+    private var tosDisclaimer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Risco WhatsApp / Termos de Uso", systemImage: "exclamationmark.triangle.fill")
+                .font(.headline)
+                .foregroundStyle(.orange)
+            Text(
+                "O IAZAP conecta sua conta via cliente WhatsApp Web não oficial (Baileys). " +
+                "Isso pode violar os Termos de Serviço do WhatsApp/Meta e pode resultar em " +
+                "banimento temporário ou permanente da conta, desafios de segurança ou quebra " +
+                "do protocolo sem aviso. Não somos parceiros oficiais da Meta. Uso sob sua " +
+                "responsabilidade — auto-reply só em chats que você selecionar."
+            )
+            .font(.callout)
+            .fixedSize(horizontal: false, vertical: true)
+            Toggle("Li e aceito o risco de uso não oficial", isOn: $store.tosRiskAccepted)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private var statusBanner: some View {

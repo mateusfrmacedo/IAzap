@@ -44,7 +44,7 @@ describe("StubReplyEngine", () => {
     assert.match(text, /IAZAP \(stub PT-BR\)/);
     assert.match(text, /tudo bem/);
     assert.match(text, /2 msg/);
-    assert.match(text, /MLX/);
+    assert.match(text, /mlx-service/i);
   });
 });
 

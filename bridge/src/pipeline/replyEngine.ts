@@ -1,6 +1,6 @@
 /**
- * Pluggable reply engine. Phase 3 ships StubReplyEngine (PT-BR placeholder).
- * Phase 4 swaps in an MLX-backed implementation behind the same interface.
+ * Pluggable reply engine.
+ * Phase 3: StubReplyEngine. Phase 4: MLX via ManagedReplyEngine (mlxEngine.ts).
  */
 
 export interface ContextTurn {
@@ -20,21 +20,25 @@ export interface ReplyRequest {
 }
 
 export interface ReplyEngine {
-  /** Stable id reported in pipeline.status (e.g. "stub", "mlx-qwen2.5-3b"). */
+  /** Stable id reported in pipeline.status (e.g. "stub", "mlx:qwen2.5-7b-instruct-4bit"). */
   readonly id: string;
   generate(req: ReplyRequest): Promise<string>;
 }
 
 const DEFAULT_SYSTEM =
-  "Você é um assistente que responde no WhatsApp em português do Brasil. Seja breve e natural.";
+  "Você é o assistente de auto-resposta do IAZAP no WhatsApp. " +
+  "Responda SEMPRE em português do Brasil. " +
+  "Use o histórico da conversa para manter o contexto. " +
+  "Seja breve, natural e no tom de mensagem de WhatsApp (curto). " +
+  "Não invente fatos. Não mencione que você é uma IA, salvo se perguntarem. " +
+  "Não use markdown elaborado. Uma ou poucas frases bastam.";
 
 export function defaultSystemPrompt(): string {
   return DEFAULT_SYSTEM;
 }
 
 /**
- * Phase 3 stub: returns a short Portuguese acknowledgement that mentions
- * context size + a preview of the latest user text. No network / no MLX.
+ * Placeholder PT-BR engine used when mlx-service is offline / forced via IAZAP_ENGINE=stub.
  */
 export class StubReplyEngine implements ReplyEngine {
   readonly id = "stub";
@@ -45,7 +49,7 @@ export class StubReplyEngine implements ReplyEngine {
     return (
       `IAZAP (stub PT-BR): recebi “${preview}”. ` +
       `Usei ${n} msg(ns) de contexto. ` +
-      `Na Fase 4 isso será gerado pelo MLX local.`
+      `Inicie mlx-service no Mac para respostas MLX reais.`
     );
   }
 }

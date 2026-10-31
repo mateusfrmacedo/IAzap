@@ -1,4 +1,4 @@
-# IAZAP Bridge Protocol (Phase 3)
+# IAZAP Bridge Protocol (Phase 3–4)
 
 JSON-RPC 2.0 over a **Unix domain socket** (preferred) or TCP `127.0.0.1` with a session token.
 
@@ -148,7 +148,7 @@ Auto-reply runs **inside the bridge**:
 3. Debounce per chat → build context window → `ReplyEngine.generate` → send
 4. Cooldown per chat after a successful send (anti-loop / rate)
 
-`StubReplyEngine` (`engineId: "stub"`) returns a short **Portuguese** placeholder. Phase 4 swaps in MLX behind the same `ReplyEngine` interface — no protocol change required for the swap itself.
+`ManagedReplyEngine` prefers the local **mlx-service** (`engineId` like `mlx:qwen2.5-7b-instruct-4bit` or `mlx-mock:…`). If the service is down, it falls back to `StubReplyEngine` (`engineId: "stub"`) unless `IAZAP_ENGINE=mlx` (then generate errors surface in the pipeline).
 
 ### `pipeline.getStatus`
 
@@ -194,6 +194,7 @@ Partial update of knobs (+ optional `enabled`).
   contextSize?: number;   // 1..40
   allowGroups?: boolean;
   systemPrompt?: string;  // PT-BR system prompt for the engine
+  modelId?: string;       // Phase 4: MLX catalog id (also via model.configure)
 }
 ```
 
@@ -236,6 +237,48 @@ Dev / stub helper: inject a text inbound into the pipeline (and notify `messages
 **Params:** `{ "chatId": string, "text": string, "fromMe"?: boolean, "isGroup"?: boolean }`  
 **Result:** `{ "ok": true, "messageId": string }`
 
+## Model / MLX (Phase 4)
+
+Inference runs in **`mlx-service/`** (Python + `mlx-lm` on Apple Silicon). The bridge calls it over `http://127.0.0.1:8742` and exposes status to the app.
+
+### `model.getStatus`
+
+**Params:** `{}`  
+**Result:** `ModelStatus`
+
+```ts
+type ModelLoadState =
+  | "unavailable" | "not_loaded" | "loading" | "ready" | "error" | "fallback_stub";
+
+type ModelStatus = {
+  backend: "mlx" | "stub";
+  engineId: string;
+  modelId: string;
+  modelLabel: string;
+  state: ModelLoadState;
+  mlxAvailable: boolean;
+  serviceUrl: string | null;
+  memoryNote: string;       // M1 Pro guidance
+  lastError: string | null;
+  availableModels: Array<{
+    id: string; label: string; hfRepo: string; memoryHint: string;
+  }>;
+}
+```
+
+Also pushed as notification `model.status` after configure/reload/startup.
+
+### `model.configure`
+
+**Params:** `{ "modelId": string }` — catalog id (`qwen2.5-7b-instruct-4bit` | `qwen2.5-3b-instruct-4bit`) or HF repo  
+**Result:** `ModelStatus`
+
+### `model.reload`
+
+Trigger weight load / HF download via mlx-service.  
+**Params:** `{}`  
+**Result:** `ModelStatus`
+
 ## Error codes
 
 | Code | Meaning |
@@ -259,7 +302,7 @@ Dev / stub helper: inject a text inbound into the pipeline (and notify `messages
 
 ## Versioning
 
-`protocolVersion: 1` — Phase 3 adds pipeline methods/notifications without breaking Phase 1–2 clients that ignore unknown notifications. Shared types live in:
+`protocolVersion: 1` — Phase 3–4 add pipeline + model methods/notifications without breaking older clients that ignore unknown notifications. Shared types live in:
 
 - `protocol/types.ts` (TypeScript source of truth for the bridge)
 - `IAZAP/IAZAP/Bridge/BridgeProtocol.swift` (Swift mirror)

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Swift mirror of `protocol/types.ts` / PROTOCOL.md (protocolVersion 1, Phase 3 pipeline methods).
+/// Swift mirror of `protocol/types.ts` / PROTOCOL.md (protocolVersion 1, Phase 3–4).
 enum BridgeRPC {
     static let protocolVersion = 1
     static let clientName = "iazap-macos"
@@ -19,6 +19,9 @@ enum BridgeRPC {
         static let pipelineConfigure = "pipeline.configure"
         static let pipelineGetActivity = "pipeline.getActivity"
         static let pipelineSimulateInbound = "pipeline.simulateInbound"
+        static let modelGetStatus = "model.getStatus"
+        static let modelConfigure = "model.configure"
+        static let modelReload = "model.reload"
 
         // Notifications (bridge → app)
         static let qrUpdate = "qr.update"
@@ -26,6 +29,7 @@ enum BridgeRPC {
         static let chatsUpdated = "chats.updated"
         static let pipelineStatus = "pipeline.status"
         static let pipelineActivity = "pipeline.activity"
+        static let modelStatus = "model.status"
     }
 }
 
@@ -113,6 +117,11 @@ struct PipelineConfigureParams: Encodable {
     var contextSize: Int?
     var allowGroups: Bool?
     var systemPrompt: String?
+    var modelId: String?
+}
+
+struct ModelConfigureParams: Encodable {
+    let modelId: String
 }
 
 struct PipelineActivityListResult: Decodable {

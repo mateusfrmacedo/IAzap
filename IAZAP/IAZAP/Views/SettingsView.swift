@@ -30,7 +30,10 @@ struct SettingsView: View {
                 TextEditor(text: $store.systemPromptPT)
                     .font(.body)
                     .frame(minHeight: 100)
-                Text("Enviado ao bridge via pipeline.configure. Stub ignora o texto; MLX (Fase 4) usará.")
+                Button("Restaurar prompt padrão") {
+                    store.systemPromptPT = AppStore.defaultSystemPromptPT
+                }
+                Text("Enviado ao bridge via pipeline.configure e usado pelo MLX (stub ignora o texto).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -51,15 +54,59 @@ struct SettingsView: View {
                 .disabled(!bridge.isConnected)
             }
 
-            Section("Motor de resposta") {
-                Text("Atual: StubReplyEngine (PT-BR placeholder).")
-                Text("Fase 4: implementar a mesma interface ReplyEngine com mlx-swift e registrar no bridge no lugar do stub.")
+            Section("Modelo MLX") {
+                Picker("Modelo", selection: $store.preferredModelId) {
+                    ForEach(bridge.modelStatus.availableModels) { model in
+                        Text(model.label).tag(model.id)
+                    }
+                }
+                .disabled(!bridge.isConnected)
+
+                LabeledContent("Estado") {
+                    Text(bridge.modelStatus.state.label)
+                }
+                LabeledContent("Backend") {
+                    Text(bridge.modelStatus.backend)
+                        .font(.body.monospaced())
+                }
+                LabeledContent("engineId") {
+                    Text(bridge.modelStatus.engineId)
+                        .font(.caption.monospaced())
+                }
+                if let url = bridge.modelStatus.serviceUrl {
+                    Text("Serviço: \(url)")
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                }
+                Text(bridge.modelStatus.memoryNote)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let err = bridge.modelStatus.lastError {
+                    Text(err)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+                HStack {
+                    Button("Aplicar modelo") {
+                        Task { await bridge.configureModel(modelId: store.preferredModelId) }
+                    }
+                    .disabled(!bridge.isConnected)
+                    Button("Carregar / reload pesos") {
+                        Task { await bridge.reloadModel() }
+                    }
+                    .disabled(!bridge.isConnected)
+                    Button("Atualizar status") {
+                        Task { await bridge.refreshModelStatus() }
+                    }
+                    .disabled(!bridge.isConnected)
+                }
+                Text("No Mac: rode `python server.py` em mlx-service (Metal). Sem serviço → fallback stub.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Section("Aviso") {
-                Text("IAZAP usa cliente WhatsApp Web não oficial (Baileys). Isso pode violar os Termos do WhatsApp/Meta e há risco de banimento da conta. Uso sob sua responsabilidade.")
+                Text("IAZAP usa cliente WhatsApp Web não oficial (Baileys). Isso pode violar os Termos do WhatsApp/Meta e há risco de banimento da conta. Uso sob sua responsabilidade. Inferência é 100% local (sem API de LLM na nuvem).")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }

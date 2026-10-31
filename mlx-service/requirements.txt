@@ -1,0 +1,10 @@
+# Apple Silicon Mac only (Metal). Install on the Mac that runs inference:
+#   python3 -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements.txt
+#
+# On Linux / CI without Metal these imports fail — the server still starts in
+# "unavailable" mode (or mock mode with IAZAP_MLX_MOCK=1).
+
+mlx>=0.22.0; platform_system == "Darwin" and platform_machine == "arm64"
+mlx-lm>=0.21.0; platform_system == "Darwin" and platform_machine == "arm64"
+huggingface-hub>=0.26.0
