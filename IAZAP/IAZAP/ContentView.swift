@@ -28,7 +28,7 @@ struct ContentView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .automatic) {
+            ToolbarItem(placement: .primaryAction) {
                 HStack(spacing: 8) {
                     Circle()
                         .fill(bridge.sessionStatus.state.color)
@@ -43,6 +43,11 @@ struct ContentView: View {
                         .foregroundStyle(bridge.pipelineStatus.enabled ? .green : .secondary)
                         .font(.caption)
                 }
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .accessibilityElement(children: .combine)
             }
         }
         .onChange(of: bridge.sessionStatus.state) { _, newState in
