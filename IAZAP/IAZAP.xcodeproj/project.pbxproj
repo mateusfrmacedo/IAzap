@@ -209,7 +209,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nBRIDGE_DIR=\"${SRCROOT}/../bridge\"\nRESOURCES=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"${RESOURCES}\"\nif [ -f \"${BRIDGE_DIR}/package.json\" ]; then\n  /bin/echo -n \"${BRIDGE_DIR}\" > \"${RESOURCES}/bridge-root.txt\"\n  echo \"[IAZAP] bridge-root.txt -> ${BRIDGE_DIR}\"\nelse\n  echo \"warning: bridge not found at ${BRIDGE_DIR} — set IAZAP_BRIDGE_DIR at runtime\"\n  /bin/echo -n \"\" > \"${RESOURCES}/bridge-root.txt\"\nfi\n";
+			shellScript = "set -e\nBRIDGE_DIR=\"${SRCROOT}/../bridge\"\nRESOURCES=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"${RESOURCES}\"\nif [ -f \"${BRIDGE_DIR}/package.json\" ]; then\n  /bin/echo -n \"${BRIDGE_DIR}\" > \"${RESOURCES}/bridge-root.txt\"\n  echo \"[IAZAP] bridge-root.txt -> ${BRIDGE_DIR}\"\nelse\n  echo \"warning: bridge not found at ${BRIDGE_DIR} \u2014 set IAZAP_BRIDGE_DIR at runtime\"\n  /bin/echo -n \"\" > \"${RESOURCES}/bridge-root.txt\"\nfi\n\"${SRCROOT}/../scripts/build-apple-helper.sh\" \"${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Helpers/iazap-apple-engine\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -276,7 +276,7 @@
 				CODE_SIGN_ENTITLEMENTS = IAZAP/IAZAP.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = IAZAP;
@@ -286,7 +286,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = app.iazap.macos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -301,7 +301,7 @@
 				CODE_SIGN_ENTITLEMENTS = IAZAP/IAZAP.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = IAZAP;
@@ -311,7 +311,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.4;
 				PRODUCT_BUNDLE_IDENTIFIER = app.iazap.macos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

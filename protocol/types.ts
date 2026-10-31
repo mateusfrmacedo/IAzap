@@ -91,7 +91,7 @@ export interface ModelCatalogEntry {
 }
 
 export interface ModelStatus {
-  backend: "mlx" | "stub";
+  backend: "mlx" | "stub" | "apple";
   engineId: string;
   modelId: string;
   modelLabel: string;
@@ -129,6 +129,8 @@ export type PipelinePhase =
 
 export interface PipelineStatus {
   enabled: boolean;
+  /** SHA-256 of the trimmed prompt currently in use (no prompt content). */
+  systemPromptHash?: string;
   engineId: string;
   phase: PipelinePhase;
   debounceMs: number;
@@ -148,6 +150,7 @@ export type PipelineActivityKind =
   | "skipped_group"
   | "skipped_disabled"
   | "skipped_cooldown"
+  | "queued_cooldown"
   | "debounced"
   | "generated"
   | "sent"

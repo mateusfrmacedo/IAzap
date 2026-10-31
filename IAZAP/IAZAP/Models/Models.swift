@@ -83,6 +83,7 @@ enum PipelinePhase: String, Codable, Sendable {
 }
 
 struct PipelineStatus: Codable, Hashable, Sendable {
+    var systemPromptHash: String? = nil
     var enabled: Bool
     var engineId: String
     var phase: PipelinePhase
@@ -99,8 +100,8 @@ struct PipelineStatus: Codable, Hashable, Sendable {
         enabled: false,
         engineId: "stub",
         phase: .idle,
-        debounceMs: 3000,
-        cooldownMs: 15000,
+        debounceMs: 1000,
+        cooldownMs: 0,
         contextSize: 12,
         allowGroups: false,
         selectedCount: 0,
@@ -161,6 +162,12 @@ struct ModelStatus: Codable, Hashable, Sendable {
         lastError: nil,
         availableModels: [
             ModelCatalogEntry(
+                id: "apple-intelligence",
+                label: "Apple Intelligence (local)",
+                hfRepo: "",
+                memoryHint: "Requer macOS 26+ e Apple Intelligence ativada."
+            ),
+            ModelCatalogEntry(
                 id: "qwen2.5-7b-instruct-4bit",
                 label: "Qwen2.5-7B Instruct (4-bit)",
                 hfRepo: "mlx-community/Qwen2.5-7B-Instruct-4bit",
@@ -183,6 +190,7 @@ enum PipelineActivityKind: String, Codable, Sendable {
     case skippedGroup = "skipped_group"
     case skippedDisabled = "skipped_disabled"
     case skippedCooldown = "skipped_cooldown"
+    case queuedCooldown = "queued_cooldown"
     case debounced
     case generated
     case sent
@@ -196,6 +204,7 @@ enum PipelineActivityKind: String, Codable, Sendable {
         case .skippedGroup: return "Skip grupo"
         case .skippedDisabled: return "Skip (kill switch)"
         case .skippedCooldown: return "Skip cooldown"
+        case .queuedCooldown: return "Aguardando intervalo"
         case .debounced: return "Debounce"
         case .generated: return "Gerado"
         case .sent: return "Enviado"

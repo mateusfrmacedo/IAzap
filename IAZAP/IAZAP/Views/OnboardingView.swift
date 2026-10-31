@@ -36,7 +36,7 @@ struct OnboardingView: View {
                         .foregroundStyle(.orange)
                 }
 
-                Text("Credenciais Baileys ficam locais em:\n\(bridge.authDirectoryPath)\nLogout apaga essa pasta. Inferência MLX é local (sem LLM na nuvem).")
+                Text("Credenciais Baileys ficam locais em:\n\(bridge.authDirectoryPath)\nLogout apaga essa pasta. As respostas são geradas localmente no Mac.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .textSelection(.enabled)

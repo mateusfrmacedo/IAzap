@@ -15,7 +15,7 @@
     "smoke:pipeline": "tsx scripts/smoke-pipeline.ts"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13.0"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.18",

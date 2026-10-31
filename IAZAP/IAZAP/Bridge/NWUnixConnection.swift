@@ -12,7 +12,7 @@ final class NWUnixConnection: @unchecked Sendable {
 
     init(path: String) {
         let endpoint = NWEndpoint.unix(path: path)
-        connection = NWConnection(to: endpoint, using: NWParameters())
+        connection = NWConnection(to: endpoint, using: .tcp)
     }
 
     func start() throws {
@@ -36,7 +36,9 @@ final class NWUnixConnection: @unchecked Sendable {
     }
 
     func send(_ data: Data) {
-        connection.send(content: data, completion: .contentProcessed { _ in })
+        connection.send(content: data, completion: .contentProcessed { [weak self] error in
+            if let error { self?.onState?(false, error.localizedDescription) }
+        })
     }
 
     func cancel() {

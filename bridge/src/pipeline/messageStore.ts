@@ -45,6 +45,11 @@ export class MessageStore {
     this.db.close();
   }
 
+  has(chatId: string, messageId: string): boolean {
+    return Boolean(this.db.prepare("SELECT 1 FROM messages WHERE chat_id = ? AND message_id = ?")
+      .get(chatId, messageId));
+  }
+
   upsert(msg: StoredMessage): void {
     this.db
       .prepare(
@@ -73,7 +78,7 @@ export class MessageStore {
            AND message_id IN (
              SELECT message_id FROM messages
              WHERE chat_id = ?
-             ORDER BY ts DESC
+             ORDER BY ts DESC, rowid DESC
              LIMIT -1 OFFSET ?
            )`,
       )
@@ -87,7 +92,7 @@ export class MessageStore {
         `SELECT chat_id, message_id, text, from_me, direction, ts
          FROM messages
          WHERE chat_id = ?
-         ORDER BY ts DESC
+         ORDER BY ts DESC, rowid DESC
          LIMIT ?`,
       )
       .all(chatId, limit) as Array<{

@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var store: AppStore
     @EnvironmentObject private var bridge: BridgeClient
+    @State private var isApplyingModel = false
 
     var body: some View {
         Form {
@@ -30,10 +31,30 @@ struct SettingsView: View {
                 TextEditor(text: $store.systemPromptPT)
                     .font(.body)
                     .frame(minHeight: 100)
-                Button("Restaurar prompt padrão") {
-                    store.systemPromptPT = AppStore.defaultSystemPromptPT
+                HStack {
+                    Button("Aplicar prompt agora") {
+                        Task { await bridge.applySystemPrompt(store.systemPromptPT) }
+                    }
+                    .disabled(!bridge.isConnected || bridge.isApplyingPrompt || store.systemPromptPT.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Restaurar prompt padrão") {
+                        store.systemPromptPT = AppStore.defaultSystemPromptPT
+                    }
                 }
-                Text("Enviado ao bridge via pipeline.configure e usado pelo MLX (stub ignora o texto).")
+                if store.systemPromptPT.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("Prompt vazio: o último aplicado continua ativo.")
+                        .foregroundStyle(.secondary)
+                } else if bridge.isApplyingPrompt {
+                    ProgressView("Aplicando prompt…")
+                } else if bridge.isPromptApplied(store.systemPromptPT) {
+                    Label("Prompt ativo nas próximas respostas", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                } else if let error = bridge.promptApplyError {
+                    Text(error).foregroundStyle(.red)
+                } else {
+                    Text(bridge.isConnected ? "Salvo no Mac. A aplicação automática ocorre após uma pausa na edição." : "Salvo no Mac. Será aplicado ao conectar.")
+                        .foregroundStyle(.secondary)
+                }
+                Text("As edições são aplicadas automaticamente. O perfil atual tem prioridade sobre respostas antigas; regras explícitas, como não usar emoji, prevalecem sobre o estilo geral.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -54,7 +75,7 @@ struct SettingsView: View {
                 .disabled(!bridge.isConnected)
             }
 
-            Section("Modelo MLX") {
+            Section("Inteligência artificial") {
                 Picker("Modelo", selection: $store.preferredModelId) {
                     ForEach(bridge.modelStatus.availableModels) { model in
                         Text(model.label).tag(model.id)
@@ -66,7 +87,7 @@ struct SettingsView: View {
                     Text(bridge.modelStatus.state.label)
                 }
                 LabeledContent("Backend") {
-                    Text(bridge.modelStatus.backend)
+                    Text(bridge.modelStatus.backend == "apple" ? "Apple Intelligence" : bridge.modelStatus.backend == "mlx" ? "Qwen / MLX" : "Demonstração")
                         .font(.body.monospaced())
                 }
                 LabeledContent("engineId") {
@@ -88,10 +109,15 @@ struct SettingsView: View {
                 }
                 HStack {
                     Button("Aplicar modelo") {
-                        Task { await bridge.configureModel(modelId: store.preferredModelId) }
+                        isApplyingModel = true
+                        let modelId = store.preferredModelId
+                        Task {
+                            await bridge.configureModel(modelId: modelId)
+                            isApplyingModel = false
+                        }
                     }
-                    .disabled(!bridge.isConnected)
-                    Button("Carregar / reload pesos") {
+                    .disabled(!bridge.isConnected || isApplyingModel)
+                    Button(store.preferredModelId == "apple-intelligence" ? "Verificar disponibilidade" : "Carregar modelo") {
                         Task { await bridge.reloadModel() }
                     }
                     .disabled(!bridge.isConnected)
@@ -100,7 +126,7 @@ struct SettingsView: View {
                     }
                     .disabled(!bridge.isConnected)
                 }
-                Text("No Mac: rode `python server.py` em mlx-service (Metal). Sem serviço → fallback stub.")
+                Text("Escolha o modelo e clique em Aplicar modelo para alternar. Apple Intelligence usa o modelo do macOS; Qwen usa o serviço MLX local.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

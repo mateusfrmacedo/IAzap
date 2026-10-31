@@ -76,7 +76,7 @@ struct StatusView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Modelo MLX") {
+            Section("Inteligência artificial") {
                 LabeledContent("Estado") {
                     Text(bridge.modelStatus.state.label)
                 }

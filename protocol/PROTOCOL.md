@@ -306,3 +306,35 @@ Trigger weight load / HF download via mlx-service.
 
 - `protocol/types.ts` (TypeScript source of truth for the bridge)
 - `IAZAP/IAZAP/Bridge/BridgeProtocol.swift` (Swift mirror)
+
+## Reconexão do cliente e QR
+
+Após `session.hello` autenticado, o servidor reenvia o último estado de
+`session.status`, `qr.update`, `chats.updated`, `pipeline.status` e `model.status`
+que já tiver sido emitido. Isso evita perder um QR gerado antes da conexão do app.
+`qr.update` com `qr: null` substitui o código anterior e também é reenviado.
+Clientes ainda não autenticados não recebem notificações.
+
+## Modelo Apple Intelligence
+
+`model.configure` aceita `modelId: "apple-intelligence"`. O status usa
+`backend: "apple"` e `engineId: "apple:foundation-models"`. O mesmo catálogo
+inclui os modelos Qwen/MLX. Para Apple, `model.reload` verifica disponibilidade
+do modelo do sistema, e `serviceUrl` é `null`. A geração Apple indisponível/recusada
+reporta erro e não envia respostas de demonstração. Não altera o protocolo v1.
+
+## Intervalo entre respostas
+
+`cooldownMs` não descarta mais mensagens recebidas no intervalo: `queued_cooldown`
+indica uma resposta pendente, que será executada automaticamente ao final da espera.
+`pendingChats` inclui chats aguardando um envio anterior. O padrão é cooldown 0 ms
+e debounce 1000 ms. `skipped_cooldown` é mantido no enum por compatibilidade.
+
+## Confirmação do prompt ativo
+
+`pipeline.status`/`pipeline.getStatus` incluem `systemPromptHash`, campo opcional
+compatível com clientes antigos. É SHA-256, em hexadecimal, do prompt ativo sem
+espaços externos e normalizado em Unicode NFC. O conteúdo do prompt não é incluído
+nesse status. Atualizações do prompt são aplicadas ao receber `pipeline.configure`,
+antes de aguardar configurações lentas do modelo, para que uma edição antiga não
+sobrescreva outra mais recente. Alterar o texto invalida gerações ainda não enviadas.

@@ -101,6 +101,7 @@ async function main(): Promise<void> {
         IAZAP_SOCKET: socketPath,
         IAZAP_TOKEN: token,
         IAZAP_STUB_WA: "1",
+        IAZAP_ENGINE: "stub",
         IAZAP_DATA: dataDir,
         IAZAP_AUTH: path.join(dataDir, "auth"),
       },

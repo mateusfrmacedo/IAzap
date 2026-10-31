@@ -72,6 +72,8 @@ export type MethodHandlers = {
 export class RpcServer extends EventEmitter {
   private server: net.Server | null = null;
   private clients = new Set<net.Socket>();
+  private authorizedClients = new Set<net.Socket>();
+  private retained = new Map<string, unknown>();
   private expectedToken: string;
   private handlers: MethodHandlers;
 
@@ -107,6 +109,7 @@ export class RpcServer extends EventEmitter {
       c.destroy();
     }
     this.clients.clear();
+    this.authorizedClients.clear();
     await new Promise<void>((resolve) => {
       if (!this.server) return resolve();
       this.server.close(() => resolve());
@@ -115,8 +118,12 @@ export class RpcServer extends EventEmitter {
 
   /** Push a JSON-RPC notification to all connected clients. */
   notify(method: string, params: unknown): void {
+    // Pairing can emit a QR before the app has completed its IPC handshake.
+    if (["qr.update", "session.status", "chats.updated", "pipeline.status", "model.status"].includes(method)) {
+      this.retained.set(method, params);
+    }
     const line = JSON.stringify({ jsonrpc: "2.0", method, params } satisfies JsonRpcNotification) + "\n";
-    for (const c of this.clients) {
+    for (const c of this.authorizedClients) {
       if (!c.destroyed) c.write(line);
     }
   }
@@ -137,8 +144,12 @@ export class RpcServer extends EventEmitter {
       }
     });
 
-    socket.on("close", () => this.clients.delete(socket));
-    socket.on("error", () => this.clients.delete(socket));
+    const remove = () => {
+      this.clients.delete(socket);
+      this.authorizedClients.delete(socket);
+    };
+    socket.on("close", remove);
+    socket.on("error", remove);
   }
 
   private async handleLine(socket: net.Socket, ctx: RpcHandlerContext, line: string): Promise<void> {
@@ -154,10 +165,10 @@ export class RpcServer extends EventEmitter {
       return;
     }
 
-    if (req.jsonrpc !== "2.0" || typeof req.method !== "string") {
+    if (!req || typeof req !== "object" || req.jsonrpc !== "2.0" || typeof req.method !== "string") {
       this.write(socket, {
         jsonrpc: "2.0",
-        id: req.id ?? null,
+        id: req?.id ?? null,
         error: { code: -32600, message: "Invalid Request" },
       });
       return;
@@ -171,6 +182,12 @@ export class RpcServer extends EventEmitter {
     try {
       const result = await this.dispatch(ctx, req.method, req.params);
       this.write(socket, { jsonrpc: "2.0", id: req.id, result });
+      if (req.method === "session.hello" && ctx.authorized) {
+        this.authorizedClients.add(socket);
+        for (const [method, params] of this.retained) {
+          socket.write(JSON.stringify({ jsonrpc: "2.0", method, params }) + "\n");
+        }
+      }
     } catch (err) {
       const { code, message } = normalizeError(err);
       this.write(socket, {
