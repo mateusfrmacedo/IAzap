@@ -75,6 +75,6 @@ it("switches MLX → Apple → MLX without passing Apple IDs to the Python servi
   assert.equal(configured.length, 0);
   assert.equal((await engine.reload()).backend, "apple");
   assert.equal((await engine.setModelId(modelId)).backend, "mlx");
-  assert.deepEqual(configured, [modelId]);
+  assert.deepEqual(configured, []); // Switching back preserves the already-configured MLX model.
   assert.equal(await engine.generate(request), "Resposta Qwen");
 });

@@ -260,7 +260,12 @@ export class ManagedReplyEngine implements ReplyEngine {
   }
 
   async setModelId(modelId: string): Promise<ModelStatus> {
-    this.modelId = findModel(modelId)?.id ?? modelId;
+    const resolved = findModel(modelId)?.id ?? modelId;
+    if (resolved === this.modelId && this.cachedService) {
+      // Reconnecting IPC or changing the prompt must not unload the same weights.
+      return this.refresh();
+    }
+    this.modelId = resolved;
     if (this.mode === "stub") {
       return this.getStatus();
     }

@@ -163,6 +163,8 @@ export class MessagePipeline extends EventEmitter {
    * Always persists + emits activity; may schedule an auto-reply.
    */
   handleInbound(msg: InboundMessage, meta?: { isGroup?: boolean }): void {
+    // WhatsApp can replay messages after reconnect; persisted IDs survive bridge restarts.
+    if (this.store.has(msg.chatId, msg.messageId)) return;
     this.store.upsert({
       chatId: msg.chatId,
       messageId: msg.messageId,

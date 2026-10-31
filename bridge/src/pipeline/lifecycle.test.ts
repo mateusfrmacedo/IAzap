@@ -103,3 +103,16 @@ it("cancels a reply when the user changes the engine", async (t) => {
   assert.equal(h.sent.length, 0);
   assert.equal(h.pipeline.getStatus().engineId, "replacement");
 });
+
+it("does not reply again to a message replayed after reconnect", async (t) => {
+  const h = harness(t);
+  const message = { chatId: "a", messageId: "replayed", text: "oi", fromMe: false, timestamp: Date.now() };
+  h.pipeline.handleInbound(message);
+  await waitFor(() => h.jobs.length === 1);
+  h.jobs[0]!.resolve("one reply");
+  await waitFor(() => h.sent.length === 1);
+  h.pipeline.handleInbound(message);
+  await delay(20);
+  assert.equal(h.jobs.length, 1);
+  assert.equal(h.sent.length, 1);
+});

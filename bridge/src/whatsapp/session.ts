@@ -29,6 +29,19 @@ export type WhatsAppSessionEvents = {
   chats: [Chat[]];
 };
 
+export type SessionDependencies = {
+  makeSocket: typeof makeWASocket;
+  useAuth: typeof useMultiFileAuthState;
+  fetchVersion: typeof fetchLatestBaileysVersion;
+  retryBaseMs: number;
+  retryMaxMs: number;
+  random: () => number;
+};
+
+export function reconnectDelay(attempt: number, base = 2_000, max = 30_000, random = Math.random): number {
+  return Math.min(max, Math.round(base * 2 ** Math.min(attempt, 10) * (0.8 + 0.4 * random())));
+}
+
 export class WhatsAppSession extends EventEmitter {
   private sock: WASocket | null = null;
   private authDir: string;
@@ -43,12 +56,18 @@ export class WhatsAppSession extends EventEmitter {
   private contactNames = new Map<string, string>();
   /** When true, connection.close must not soft-reconnect. */
   private intentionalStop = false;
-  private starting = false;
+  private startTask: Promise<void> | null = null;
+  private epoch = 0;
+  private reconnectAttempts = 0;
+  private deps: SessionDependencies;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(authDir: string) {
+  constructor(authDir: string, deps: Partial<SessionDependencies> = {}) {
     super();
     this.authDir = authDir;
+    this.deps = { makeSocket: makeWASocket, useAuth: useMultiFileAuthState,
+      fetchVersion: fetchLatestBaileysVersion, retryBaseMs: 2_000,
+      retryMaxMs: 30_000, random: Math.random, ...deps };
   }
 
   getStatus(): SessionStatus {
@@ -103,16 +122,20 @@ export class WhatsAppSession extends EventEmitter {
   }
 
   async start(): Promise<void> {
-    if (this.starting) return;
-    this.starting = true;
+    if (this.startTask) return this.startTask;
     this.intentionalStop = false;
     this.clearReconnectTimer();
-
-    try {
-      await this.openSocket();
-    } finally {
-      this.starting = false;
-    }
+    const epoch = this.epoch;
+    const task = this.openSocket(epoch).catch((err) => {
+      if (this.intentionalStop || epoch !== this.epoch) return;
+      this.setStatus({ state: "error", me: null,
+        lastError: err instanceof Error ? err.message : String(err) });
+      this.scheduleReconnect();
+    }).finally(() => {
+      if (this.startTask === task) this.startTask = null;
+    });
+    this.startTask = task;
+    return task;
   }
 
   /** Soft reconnect without wiping auth (e.g. after disconnect). */
@@ -120,6 +143,8 @@ export class WhatsAppSession extends EventEmitter {
     this.intentionalStop = true;
     this.clearReconnectTimer();
     await this.endSocket();
+    await this.startTask;
+    this.reconnectAttempts = 0;
     this.intentionalStop = false;
     await this.start();
     return this.getStatus();
@@ -161,14 +186,16 @@ export class WhatsAppSession extends EventEmitter {
     this.emit("qr", null);
   }
 
-  private async openSocket(): Promise<void> {
+  private async openSocket(epoch: number): Promise<void> {
     fs.mkdirSync(this.authDir, { recursive: true });
     this.setStatus({ state: "connecting", me: null, lastError: null });
 
-    const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
-    const { version } = await fetchLatestBaileysVersion();
+    const { state, saveCreds } = await this.deps.useAuth(this.authDir);
+    if (this.intentionalStop || epoch !== this.epoch) return;
+    const { version } = await this.deps.fetchVersion({ timeout: 5_000 });
+    if (this.intentionalStop || epoch !== this.epoch) return;
 
-    this.sock = makeWASocket({
+    const sock = this.deps.makeSocket({
       version,
       auth: {
         creds: state.creds,
@@ -178,12 +205,19 @@ export class WhatsAppSession extends EventEmitter {
       printQRInTerminal: false,
       syncFullHistory: false,
       markOnlineOnConnect: false,
+      connectTimeoutMs: 30_000,
+      keepAliveIntervalMs: 20_000,
       getMessage: async () => undefined,
     });
 
-    this.sock.ev.on("creds.update", saveCreds);
+    this.sock = sock;
+    const isCurrent = () => this.sock === sock && !this.intentionalStop && epoch === this.epoch;
+    sock.ev.on("creds.update", () => {
+      if (isCurrent()) void saveCreds().catch((err) => log.error({ err }, "failed to save session credentials"));
+    });
 
-    this.sock.ev.on("connection.update", (update) => {
+    sock.ev.on("connection.update", (update) => {
+      if (!isCurrent()) return;
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
@@ -192,6 +226,7 @@ export class WhatsAppSession extends EventEmitter {
       }
 
       if (connection === "open") {
+        this.reconnectAttempts = 0;
         const me = this.resolveMe();
         this.setStatus({ state: "connected", me, lastError: null });
         this.emit("qr", null);
@@ -205,7 +240,11 @@ export class WhatsAppSession extends EventEmitter {
         const statusCode = err?.output?.statusCode;
         const loggedOut = statusCode === DisconnectReason.loggedOut;
 
-        if (this.intentionalStop) {
+        this.sock = null;
+        this.emit("qr", null);
+        if (statusCode === DisconnectReason.connectionReplaced) {
+          this.setStatus({ state: "error", me: null,
+            lastError: "WhatsApp aberto por outra instância do IAZAP. Feche a outra cópia e use Reconectar." });
           return;
         }
 
@@ -229,7 +268,8 @@ export class WhatsAppSession extends EventEmitter {
       }
     });
 
-    this.sock.ev.on("chats.upsert", (chats) => {
+    sock.ev.on("chats.upsert", (chats) => {
+      if (!isCurrent()) return;
       for (const c of chats) {
         this.upsertChat(c.id, {
           name: this.resolveChatName(c.id, c.name),
@@ -242,7 +282,8 @@ export class WhatsAppSession extends EventEmitter {
       this.emitChats();
     });
 
-    this.sock.ev.on("chats.update", (updates) => {
+    sock.ev.on("chats.update", (updates) => {
+      if (!isCurrent()) return;
       let changed = false;
       for (const u of updates) {
         if (!u.id) continue;
@@ -258,15 +299,18 @@ export class WhatsAppSession extends EventEmitter {
       if (changed) this.emitChats();
     });
 
-    this.sock.ev.on("contacts.upsert", (contacts) => {
+    sock.ev.on("contacts.upsert", (contacts) => {
+      if (!isCurrent()) return;
       this.applyContacts(contacts);
     });
 
-    this.sock.ev.on("contacts.update", (updates) => {
+    sock.ev.on("contacts.update", (updates) => {
+      if (!isCurrent()) return;
       this.applyContacts(updates as Contact[]);
     });
 
-    this.sock.ev.on("messages.upsert", ({ messages, type }) => {
+    sock.ev.on("messages.upsert", ({ messages, type }) => {
+      if (!isCurrent()) return;
       if (type !== "notify" && type !== "append") return;
       for (const msg of messages) {
         this.handleInbound(msg);
@@ -305,17 +349,13 @@ export class WhatsAppSession extends EventEmitter {
 
   private scheduleReconnect(): void {
     this.clearReconnectTimer();
+    if (this.intentionalStop) return;
+    const delay = reconnectDelay(this.reconnectAttempts++, this.deps.retryBaseMs, this.deps.retryMaxMs, this.deps.random);
+    log.info({ attempt: this.reconnectAttempts, delayMs: delay }, "reconnecting WhatsApp");
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      if (this.intentionalStop) return;
-      void this.start().catch((e) => {
-        this.setStatus({
-          state: "error",
-          me: null,
-          lastError: e instanceof Error ? e.message : String(e),
-        });
-      });
-    }, 2_000);
+      if (!this.intentionalStop) void this.start();
+    }, delay);
   }
 
   private clearReconnectTimer(): void {
@@ -326,6 +366,7 @@ export class WhatsAppSession extends EventEmitter {
   }
 
   private async endSocket(): Promise<void> {
+    this.epoch += 1;
     const sock = this.sock;
     this.sock = null;
     if (!sock) return;

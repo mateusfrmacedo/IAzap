@@ -45,6 +45,11 @@ export class MessageStore {
     this.db.close();
   }
 
+  has(chatId: string, messageId: string): boolean {
+    return Boolean(this.db.prepare("SELECT 1 FROM messages WHERE chat_id = ? AND message_id = ?")
+      .get(chatId, messageId));
+  }
+
   upsert(msg: StoredMessage): void {
     this.db
       .prepare(

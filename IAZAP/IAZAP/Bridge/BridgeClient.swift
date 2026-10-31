@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import Darwin
 
 /// JSON-RPC client over a Unix domain socket.
 ///
@@ -38,6 +39,12 @@ final class BridgeClient: ObservableObject {
     private var statusPollTask: Task<Void, Never>?
     private var didBootstrap = false
     private var isSyncingPreferences = false
+    private var shouldMaintainConnection = false
+    private var isConnecting = false
+    private var isRecovering = false
+    private var recoveryAttempts = 0
+    private var nextRecoveryAt = Date.distantPast
+    private var useStubWhatsApp = false
 
     func attach(store: AppStore) {
         self.store = store
@@ -66,6 +73,9 @@ final class BridgeClient: ObservableObject {
     func bootstrapOnLaunch(stubWhatsApp: Bool = false) async {
         guard !didBootstrap else { return }
         didBootstrap = true
+        shouldMaintainConnection = true
+        useStubWhatsApp = stubWhatsApp
+        startStatusPolling()
         isBootstrapping = true
         statusDetail = "Procurando bridge…"
         lastError = nil
@@ -90,6 +100,7 @@ final class BridgeClient: ObservableObject {
             return
         }
 
+        guard shouldMaintainConnection else { isBootstrapping = false; return }
         guard let bridgeDir = BridgeLocator.resolve() else {
             statusDetail = "Bridge não encontrado. Rode ./scripts/run-mac.sh ou informe a pasta em Status."
             lastError = "Pasta bridge/ não encontrada (precisa de package.json + src/index.ts)."
@@ -120,6 +131,10 @@ final class BridgeClient: ObservableObject {
 
     /// Connect to an already-running bridge (typical during `npm run serve` / `dev`).
     func connect(socketPath: String? = nil, token: String? = nil) async {
+        guard !isConnecting else { return }
+        isConnecting = true
+        defer { isConnecting = false }
+        shouldMaintainConnection = true
         // Retained bridge defaults must not replace the user's saved model before sync.
         isSyncingPreferences = true
         defer { isSyncingPreferences = false }
@@ -162,8 +177,10 @@ final class BridgeClient: ObservableObject {
                 client: BridgeRPC.clientName,
                 protocolVersion: BridgeRPC.protocolVersion
             )
-            let _: HelloResult = try await request(method: BridgeRPC.Method.sessionHello, params: hello)
+            let _: HelloResult = try await request(method: BridgeRPC.Method.sessionHello, params: hello, timeoutSeconds: 3)
             isConnected = true
+            recoveryAttempts = 0
+            nextRecoveryAt = .distantPast
             sessionStatus = try await request(method: BridgeRPC.Method.sessionStatus, params: EmptyParams())
             statusDetail = detailForCurrentSession()
             await syncSelectionToBridge()
@@ -175,12 +192,18 @@ final class BridgeClient: ObservableObject {
             startStatusPolling()
         } catch {
             lastError = error.localizedDescription
+            if let rpcError = error as? JSONRPCErrorBody, rpcError.code == -32001 {
+                shouldMaintainConnection = false
+                stopStatusPolling()
+                statusDetail = "Token IPC inválido. Confira a configuração do bridge."
+            }
             isConnected = false
             disconnectIPCOnly()
         }
     }
 
     func disconnect() {
+        shouldMaintainConnection = false
         stopStatusPolling()
         disconnectIPCOnly()
         stopBridgeProcess()
@@ -189,6 +212,9 @@ final class BridgeClient: ObservableObject {
 
     /// Spawn the Node bridge as a child process, then connect.
     func startBridgeAndConnect(bridgeDirectory: URL, stubWhatsApp: Bool = false) async {
+        shouldMaintainConnection = true
+        useStubWhatsApp = stubWhatsApp
+        startStatusPolling()
         stopBridgeProcess()
         // Keep the shared default token so out-of-box matches README / Terminal.
         if ProcessInfo.processInfo.environment["IAZAP_TOKEN"] == nil {
@@ -248,17 +274,17 @@ final class BridgeClient: ObservableObject {
         process.terminationHandler = { [weak self] proc in
             Task { @MainActor in
                 guard let self else { return }
-                if self.bridgeProcess === proc || self.bridgeProcess == nil {
-                    self.bridgeProcessRunning = false
-                    if self.isConnected == false {
-                        self.statusDetail = "Bridge encerrou (código \(proc.terminationStatus))."
-                    }
-                }
+                guard self.bridgeProcess === proc else { return }
+                self.bridgeProcess = nil
+                self.bridgeProcessRunning = false
+                self.disconnectIPCOnly()
+                self.statusDetail = "Bridge encerrou (código \(proc.terminationStatus)). Tentando recuperar…"
             }
         }
 
         do {
             try await ensureBridgeDependencies(at: bridgeDirectory, environment: env)
+            guard shouldMaintainConnection else { return }
             let logHandle = try FileHandle(forWritingTo: logURL)
             defer { try? logHandle.close() }
             process.standardError = logHandle
@@ -458,6 +484,7 @@ final class BridgeClient: ObservableObject {
             statusDetail = detailForCurrentSession()
         } catch {
             lastError = error.localizedDescription
+            disconnectIPCOnly()
         }
     }
 
@@ -544,17 +571,59 @@ final class BridgeClient: ObservableObject {
     }
 
     private func startStatusPolling() {
-        stopStatusPolling()
+        guard statusPollTask == nil else { return }
         statusPollTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 2_500_000_000)
-                guard let self, self.isConnected else { continue }
-                // Keep UI in sync if a notification was missed.
+                do { try await Task.sleep(nanoseconds: 2_500_000_000) }
+                catch { return }
+                guard let self, self.shouldMaintainConnection else { return }
+                if self.isBootstrapping || self.isConnecting || self.isRecovering { continue }
+                if !self.isConnected {
+                    await self.recoverConnectionIfNeeded()
+                    continue
+                }
                 await self.fetchStatus()
                 if self.sessionStatus.state == .connected, self.chats.isEmpty {
                     await self.refreshChats()
                 }
             }
+        }
+    }
+
+    private func recoverConnectionIfNeeded() async {
+        guard shouldMaintainConnection, !isRecovering, !isConnecting, Date() >= nextRecoveryAt else { return }
+        isRecovering = true
+        defer { isRecovering = false }
+        recoveryAttempts += 1
+        nextRecoveryAt = Date().addingTimeInterval(min(30, pow(2, Double(min(recoveryAttempts, 5)))))
+        statusDetail = "Recuperando conexão com o bridge…"
+        await connect(socketPath: socketPath, token: sessionToken)
+        guard !isConnected, shouldMaintainConnection else { return }
+        // Give a live child time to recover; restart only our own unresponsive process.
+        if bridgeProcess?.isRunning == true {
+            guard recoveryAttempts >= 3 else { return }
+            let unresponsive = bridgeProcess
+            stopBridgeProcess()
+            // Let the old child exit before opening another WhatsApp socket with the same credentials.
+            for _ in 0..<15 {
+                if unresponsive?.isRunning != true { break }
+                try? await Task.sleep(nanoseconds: 200_000_000)
+            }
+            guard shouldMaintainConnection else { return }
+        }
+        guard let directory = BridgeLocator.resolve() else { return }
+        await startBridgeAndConnect(bridgeDirectory: directory, stubWhatsApp: useStubWhatsApp)
+    }
+
+    func recoverAfterWake() async {
+        guard shouldMaintainConnection else { return }
+        nextRecoveryAt = .distantPast
+        if isConnected {
+            await fetchStatus()
+        }
+        if !isConnected { await recoverConnectionIfNeeded() }
+        else if sessionStatus.state == .disconnected || sessionStatus.state == .connecting {
+            await reconnectSession()
         }
     }
 
@@ -689,9 +758,15 @@ final class BridgeClient: ObservableObject {
     }
 
     private func stopBridgeProcess() {
-        bridgeProcess?.terminate()
+        let process = bridgeProcess
         bridgeProcess = nil
         bridgeProcessRunning = false
+        guard let process, process.isRunning else { return }
+        process.terminate()
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+        }
     }
 }
 

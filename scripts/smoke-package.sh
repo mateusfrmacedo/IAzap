@@ -8,6 +8,8 @@ trap 'rm -rf "$RUNTIME"' EXIT
 ditto -x -k "$ZIP" "$RUNTIME"
 APP="$RUNTIME/IAZAP.app"
 codesign --verify --deep --strict "$APP"
+# A test binary inside the bundle must not write the real app's UserDefaults.
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier app.iazap.smoke-test.$(uuidgen)" "$APP/Contents/Info.plist"
 # Compile the same bootstrap harness inside a disposable copy so Bundle.main resolves resources.
 swiftc -parse-as-library -o "$APP/Contents/MacOS/BootstrapSmoke" \
   "$ROOT/scripts/tests/BootstrapSmoke.swift" "$ROOT"/IAZAP/IAZAP/Bridge/*.swift \

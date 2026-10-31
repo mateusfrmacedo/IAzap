@@ -94,6 +94,35 @@ node scripts/smoke-engines.mjs
 IAZAP_TEST_APPLE=1 ./scripts/smoke-package.sh
 ```
 
+## Prompt e recuperação de conexão
+
+O preset [`prompts/conversa-natural.txt`](prompts/conversa-natural.txt) orienta o
+estilo de conversa: curto, contextual e sem frases de atendimento. Cole-o no campo
+Prompt dos Ajustes e aplique no bridge. Isso é configuração de comportamento,
+não treinamento/fine-tuning dos pesos. O preset foi inspirado em ideias de estilo
+[da reconstrução pública do prompt do Poke](https://gist.github.com/burritosoftware/dcde4ca404c825dced9421840eb8a497),
+sem copiar identidade, ferramentas, integrações ou alegações daquele produto.
+
+O bridge tenta recuperar falhas transitórias do WhatsApp com intervalos progressivos
+(aproximadamente 2 a 30 segundos), preservando o pareamento. Mensagens já registradas
+não recebem uma segunda resposta se forem reenviadas após reconexão. Uma sessão
+revogada exige novo QR; conflito com outra cópia do app é mostrado como erro.
+
+O app também recupera o IPC e reinicia seu processo filho se ele encerrar ou ficar
+sem responder. Ao acordar do repouso, verifica a conexão novamente. Ajustar o prompt
+ou recuperar o IPC com o mesmo modelo não descarrega os pesos MLX já preparados.
+O Mac precisa estar acordado e com internet para receber/enviar mensagens.
+
+Teste de queda do processo, sem usar WhatsApp real:
+
+```bash
+IAZAP_TEST_RECOVERY=1 ./scripts/smoke-bootstrap.sh
+# Simula um processo travado, sem usar WhatsApp real:
+IAZAP_TEST_HANG=1 ./scripts/smoke-bootstrap.sh
+# Ou com o pacote e preferência Apple:
+IAZAP_TEST_RECOVERY=1 IAZAP_TEST_APPLE=1 ./scripts/smoke-package.sh
+```
+
 ## Status
 
 | Camada | Estado |

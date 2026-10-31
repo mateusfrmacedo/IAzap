@@ -37,6 +37,15 @@ struct IAZAPApp: App {
 final class IAZAPAppDelegate: NSObject, NSApplicationDelegate {
     weak var bridge: BridgeClient?
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake),
+            name: NSWorkspace.didWakeNotification, object: nil)
+    }
+
+    @objc private func didWake(_ notification: Notification) {
+        Task { await bridge?.recoverAfterWake() }
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         bridge?.disconnect()
     }
