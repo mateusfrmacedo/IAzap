@@ -99,8 +99,8 @@ struct PipelineStatus: Codable, Hashable, Sendable {
         enabled: false,
         engineId: "stub",
         phase: .idle,
-        debounceMs: 3000,
-        cooldownMs: 15000,
+        debounceMs: 1000,
+        cooldownMs: 0,
         contextSize: 12,
         allowGroups: false,
         selectedCount: 0,
@@ -189,6 +189,7 @@ enum PipelineActivityKind: String, Codable, Sendable {
     case skippedGroup = "skipped_group"
     case skippedDisabled = "skipped_disabled"
     case skippedCooldown = "skipped_cooldown"
+    case queuedCooldown = "queued_cooldown"
     case debounced
     case generated
     case sent
@@ -202,6 +203,7 @@ enum PipelineActivityKind: String, Codable, Sendable {
         case .skippedGroup: return "Skip grupo"
         case .skippedDisabled: return "Skip (kill switch)"
         case .skippedCooldown: return "Skip cooldown"
+        case .queuedCooldown: return "Aguardando intervalo"
         case .debounced: return "Debounce"
         case .generated: return "Gerado"
         case .sent: return "Enviado"

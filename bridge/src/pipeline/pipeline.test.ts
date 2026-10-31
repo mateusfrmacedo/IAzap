@@ -165,7 +165,7 @@ describe("MessagePipeline", () => {
         isSelected: (id) => selected.has(id),
         selectedCount: () => selected.size,
       },
-      { enabled: false, debounceMs: 20, cooldownMs: 5_000 },
+      { enabled: false, debounceMs: 20, cooldownMs: 200 },
     );
 
     const kinds: string[] = [];
@@ -183,9 +183,24 @@ describe("MessagePipeline", () => {
     pipeline.handleInbound(inbound({ chatId: "c@s.whatsapp.net", text: "c" }));
     await new Promise((r) => setTimeout(r, 80));
     assert.equal(sends, 1);
-    assert.ok(kinds.includes("skipped_cooldown"));
+    assert.ok(kinds.includes("queued_cooldown"));
+    await new Promise((r) => setTimeout(r, 140));
+    assert.equal(sends, 2, "the single message must receive a reply once the cooldown ends");
+    pipeline.setEnabled(false);
 
     store.close();
     fs.rmSync(path.dirname(dbPath), { recursive: true, force: true });
   });
+});
+
+
+it("keeps arrival order and newest context when messages share a WhatsApp timestamp", (t) => {
+  const store = new MessageStore(":memory:", 3);
+  t.after(() => store.close());
+  for (let n = 1; n <= 5; n++) store.upsert({
+    chatId: "same-second", messageId: String(n), text: String(n), fromMe: false,
+    direction: "in", timestamp: 1000,
+  });
+  assert.deepEqual(store.recent("same-second", 3).map(m => m.messageId), ["3", "4", "5"]);
+  assert.equal(store.recent("same-second", 1)[0]?.messageId, "5");
 });

@@ -322,3 +322,10 @@ Clientes ainda não autenticados não recebem notificações.
 inclui os modelos Qwen/MLX. Para Apple, `model.reload` verifica disponibilidade
 do modelo do sistema, e `serviceUrl` é `null`. A geração Apple indisponível/recusada
 reporta erro e não envia respostas de demonstração. Não altera o protocolo v1.
+
+## Intervalo entre respostas
+
+`cooldownMs` não descarta mais mensagens recebidas no intervalo: `queued_cooldown`
+indica uma resposta pendente, que será executada automaticamente ao final da espera.
+`pendingChats` inclui chats aguardando um envio anterior. O padrão é cooldown 0 ms
+e debounce 1000 ms. `skipped_cooldown` é mantido no enum por compatibilidade.

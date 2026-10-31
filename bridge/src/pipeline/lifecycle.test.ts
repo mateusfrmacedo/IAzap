@@ -116,3 +116,68 @@ it("does not reply again to a message replayed after reconnect", async (t) => {
   assert.equal(h.jobs.length, 1);
   assert.equal(h.sent.length, 1);
 });
+
+it("answers one message received during cooldown without needing another inbound", async (t) => {
+  const h = harness(t);
+  h.pipeline.configure({ cooldownMs: 100 });
+  h.receive("a", "primeira");
+  await waitFor(() => h.jobs.length === 1);
+  h.jobs[0]!.resolve("primeira resposta");
+  await waitFor(() => h.sent.length === 1);
+  h.receive("a", "mensagem isolada");
+  await delay(20);
+  assert.equal(h.jobs.length, 1);
+  assert.equal(h.pipeline.getStatus().pendingChats, 1);
+  await waitFor(() => h.jobs.length === 2);
+  assert.equal(h.jobs[1]!.req.latestUserText, "mensagem isolada");
+  h.jobs[1]!.resolve("segunda resposta");
+  await waitFor(() => h.sent.length === 2);
+});
+
+it("coalesces cooldown messages and cancels the queue with the global switch", async (t) => {
+  const h = harness(t);
+  h.pipeline.configure({ cooldownMs: 100 });
+  h.receive();
+  await waitFor(() => h.jobs.length === 1);
+  h.jobs[0]!.resolve("first");
+  await waitFor(() => h.sent.length === 1);
+  h.receive("a", "parte 1");
+  h.receive("a", "parte 2");
+  await waitFor(() => h.jobs.length === 2);
+  assert.equal(h.jobs[1]!.req.latestUserText, "parte 2");
+  h.jobs[1]!.resolve("second");
+  await waitFor(() => h.sent.length === 2);
+  h.receive("a", "não enviar");
+  h.pipeline.setEnabled(false);
+  await delay(120);
+  assert.equal(h.jobs.length, 2);
+  assert.equal(h.pipeline.getStatus().pendingChats, 0);
+});
+
+it("responds to a message arriving during an unfinished send", async (t) => {
+  const store = new MessageStore(":memory:");
+  const sending: Array<() => void> = [];
+  const pipeline = new MessagePipeline({
+    store,
+    engine: { id: "quick", generate: async (req) => req.latestUserText },
+    sendText: () => new Promise((resolve) => {
+      const n = sending.length + 1;
+      sending.push(() => resolve({ messageId: `out-${n}` }));
+    }),
+    isSelected: () => true,
+    selectedCount: () => 1,
+  }, { enabled: true, debounceMs: 0, cooldownMs: 0 });
+  t.after(() => { pipeline.setEnabled(false); store.close(); });
+  const receive = (id: string) => pipeline.handleInbound({ chatId: "a", messageId: id, text: id, fromMe: false, timestamp: Date.now() });
+  receive("one");
+  await waitFor(() => sending.length === 1);
+  receive("two");
+  await delay(20);
+  assert.equal(sending.length, 1);
+  assert.equal(pipeline.getStatus().pendingChats, 1);
+  sending[0]!();
+  await waitFor(() => sending.length === 2);
+  sending[1]!();
+  await waitFor(() => pipeline.getActivity().filter(a => a.kind === "sent").length === 2);
+  assert.equal(pipeline.getStatus().pendingChats, 0);
+});

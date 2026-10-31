@@ -67,6 +67,7 @@ export class MessagePipeline extends EventEmitter {
   private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private pendingLatest = new Map<string, InboundMessage>();
   private lastSentAt = new Map<string, number>();
+  private sendingChats = new Set<string>();
   private generation = 0;
   private chatGenerations = new Map<string, number>();
   private activeReplies = new Map<symbol, "generating" | "sending">();
@@ -81,8 +82,8 @@ export class MessagePipeline extends EventEmitter {
     this.isGroupFn = deps.isGroup;
 
     this.enabled = opts.enabled ?? false;
-    this.debounceMs = opts.debounceMs ?? 3_000;
-    this.cooldownMs = opts.cooldownMs ?? 15_000;
+    this.debounceMs = opts.debounceMs ?? 1_000;
+    this.cooldownMs = opts.cooldownMs ?? 0;
     this.contextSize = opts.contextSize ?? 12;
     this.allowGroups = opts.allowGroups ?? false;
     this.systemPrompt = opts.systemPrompt ?? defaultSystemPrompt();
@@ -99,7 +100,7 @@ export class MessagePipeline extends EventEmitter {
       contextSize: this.contextSize,
       allowGroups: this.allowGroups,
       selectedCount: this.selectedCountFn(),
-      pendingChats: this.debounceTimers.size,
+      pendingChats: this.pendingLatest.size,
       lastActivityAt: this.lastActivityAt,
       lastError: this.lastError,
     };
@@ -243,13 +244,25 @@ export class MessagePipeline extends EventEmitter {
     this.chatGenerations.set(msg.chatId, ++this.generation);
     this.pendingLatest.set(msg.chatId, msg);
     const existing = this.debounceTimers.get(msg.chatId);
-    if (existing) clearTimeout(existing);
+    if (existing) {
+      clearTimeout(existing);
+      this.debounceTimers.delete(msg.chatId);
+    }
 
-    this.setPhase("debouncing");
+    // If a send is in flight, keep the latest message until that send settles.
+    // This avoids overlapping sends without needing a second inbound to wake the chat.
+    if (this.sendingChats.has(msg.chatId)) {
+      this.pushActivity({ kind: "debounced", chatId: msg.chatId, detail: "Aguardando envio anterior", messageId: msg.messageId });
+      this.emitStatus();
+      return;
+    }
+    const remainingCooldown = Math.max(0, this.cooldownMs - (Date.now() - (this.lastSentAt.get(msg.chatId) ?? 0)));
+    const delayMs = Math.max(this.debounceMs, remainingCooldown);
+    this.setPhase(remainingCooldown > this.debounceMs ? "cooldown" : "debouncing");
     this.pushActivity({
-      kind: "debounced",
+      kind: remainingCooldown > this.debounceMs ? "queued_cooldown" : "debounced",
       chatId: msg.chatId,
-      detail: `Debounce ${this.debounceMs}ms`,
+      detail: remainingCooldown > this.debounceMs ? `Resposta agendada em ${delayMs}ms` : `Debounce ${this.debounceMs}ms`,
       messageId: msg.messageId,
     });
     this.emitStatus();
@@ -264,7 +277,7 @@ export class MessagePipeline extends EventEmitter {
         this.setPhase("idle");
         this.emitStatus();
       }
-    }, this.debounceMs);
+    }, delayMs);
 
     this.debounceTimers.set(msg.chatId, timer);
   }
@@ -294,16 +307,9 @@ export class MessagePipeline extends EventEmitter {
 
     const last = this.lastSentAt.get(msg.chatId) ?? 0;
     const since = Date.now() - last;
-    if (since < this.cooldownMs) {
-      this.pushActivity({
-        kind: "skipped_cooldown",
-        chatId: msg.chatId,
-        detail: `Cooldown ativo (${Math.ceil((this.cooldownMs - since) / 1000)}s restantes)`,
-        messageId: msg.messageId,
-      });
-      this.setPhase("cooldown");
-      this.emitStatus();
-      this.finishIdleIfQuiet();
+    if (since < this.cooldownMs || this.sendingChats.has(msg.chatId)) {
+      // A send/configuration may have changed the deadline since the timer was set.
+      this.scheduleReply(msg);
       return;
     }
 
@@ -347,6 +353,7 @@ export class MessagePipeline extends EventEmitter {
       if (!this.allowGroups && (this.isGroupFn?.(msg.chatId) ?? msg.chatId.endsWith("@g.us"))) return;
 
       this.activeReplies.set(job, "sending");
+      this.sendingChats.add(msg.chatId);
       this.setPhase("sending");
       this.emitStatus();
 
@@ -374,6 +381,11 @@ export class MessagePipeline extends EventEmitter {
       });
       this.emitStatus();
     } finally {
+      if (this.activeReplies.get(job) === "sending") {
+        this.sendingChats.delete(msg.chatId);
+        const queued = this.pendingLatest.get(msg.chatId);
+        if (queued && this.enabled && !this.debounceTimers.has(msg.chatId)) this.scheduleReply(queued);
+      }
       this.activeReplies.delete(job);
       if (this.chatGenerations.get(msg.chatId) === gen) this.chatGenerations.delete(msg.chatId);
       this.finishIdleIfQuiet();

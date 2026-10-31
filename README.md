@@ -123,6 +123,33 @@ IAZAP_TEST_HANG=1 ./scripts/smoke-bootstrap.sh
 IAZAP_TEST_RECOVERY=1 IAZAP_TEST_APPLE=1 ./scripts/smoke-package.sh
 ```
 
+## Mensagem única, ícone e estilo de conversa (0.2.2)
+
+O app usa o novo ícone do gato piloto em todas as resoluções do macOS. O prompt
+padrão agora descreve uma conversa casual e proíbe ofertas genéricas de ajuda,
+como “Como posso ajudar hoje?”. O campo Prompt continua editável nos Ajustes.
+
+As respostas não dependem de uma segunda mensagem: o intervalo de cooldown,
+quando configurado, mantém a mensagem na fila e agenda a resposta automaticamente.
+O padrão é **0 ms de cooldown**, mantendo **1 segundo de debounce** para agrupar
+mensagens enviadas em sequência. Zero é preservado ao reabrir o app.
+
+Mensagens recebidas durante um envio também ficam na fila. O kill switch cancela
+a fila pendente. Frases convencionais de oferta de ajuda são removidas da resposta;
+se toda a geração for apenas uma oferta genérica, há uma nova tentativa automática
+no mesmo turno. Um segundo resultado genérico vira erro, sem enviar aquela frase.
+
+A referência de estilo inclui os [prompts públicos atribuídos ao Poke](https://github.com/x1xhlol/system-prompts-and-models-of-ai-tools/tree/main/Poke),
+sem copiar identidade, ferramentas ou alegações de capacidade. A naturalidade ainda
+depende do modelo escolhido; essa configuração não treina seus pesos.
+
+Validação local do estilo com mensagens fictícias e os dois motores, sem WhatsApp:
+
+```bash
+cd bridge
+node --import tsx ../scripts/smoke-conversation.mts
+```
+
 ## Status
 
 | Camada | Estado |

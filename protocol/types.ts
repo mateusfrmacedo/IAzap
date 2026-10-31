@@ -148,6 +148,7 @@ export type PipelineActivityKind =
   | "skipped_group"
   | "skipped_disabled"
   | "skipped_cooldown"
+  | "queued_cooldown"
   | "debounced"
   | "generated"
   | "sent"

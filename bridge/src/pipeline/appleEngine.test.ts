@@ -78,3 +78,15 @@ it("switches MLX → Apple → MLX without passing Apple IDs to the Python servi
   assert.deepEqual(configured, []); // Switching back preserves the already-configured MLX model.
   assert.equal(await engine.generate(request), "Resposta Qwen");
 });
+
+it("retries a generic-only completion automatically, without another incoming message", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "iazap-style-retry-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "helper.cjs");
+  const counter = path.join(dir, "calls");
+  fs.writeFileSync(file, `#!${process.execPath}\nconst fs=require('node:fs');let raw='';process.stdin.on('data',c=>raw+=c);process.stdin.on('end',()=>{const r=JSON.parse(raw);if(r.method==='status'){console.log(JSON.stringify({state:'ready'}));return;}const file=${JSON.stringify(counter)};const count=fs.existsSync(file)?Number(fs.readFileSync(file,'utf8'))+1:1;fs.writeFileSync(file,String(count));console.log(JSON.stringify({state:'ready',text:count===1?'Como posso ajudar hoje?':'oii'}));});\n`, { mode: 0o700 });
+  const engine = new SelectableReplyEngine({ appleHelperPath: file });
+  await engine.setModelId(APPLE_MODEL_ID);
+  assert.equal(await engine.generate(request), "oii");
+  assert.equal(fs.readFileSync(counter, "utf8"), "2");
+});

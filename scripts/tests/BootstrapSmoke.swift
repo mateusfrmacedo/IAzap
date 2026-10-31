@@ -18,6 +18,10 @@ struct BootstrapSmoke {
         let expectsEnabled = ProcessInfo.processInfo.environment["IAZAP_TEST_RECOVERY"] == "1"
             || ProcessInfo.processInfo.environment["IAZAP_TEST_HANG"] == "1"
         store.autoReplyEnabled = expectsEnabled
+        store.cooldownMs = 0
+        guard AppStore().cooldownMs == 0 else {
+            print("FAIL: zero cooldown was not persisted"); exit(1)
+        }
         let testApple = ProcessInfo.processInfo.environment["IAZAP_TEST_APPLE"] == "1"
         store.preferredModelId = testApple ? "apple-intelligence" : AppStore.defaultModelId
         bridge.attach(store: store)
