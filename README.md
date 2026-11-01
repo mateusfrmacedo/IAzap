@@ -1,8 +1,35 @@
+<p align="center">
+  <img src="docs/images/icon.png" width="112" alt="Ícone do ZapIA — gato piloto">
+</p>
+
 # ZapIA
+
+**WhatsApp com IA local, menus programados e atendimento humano em um único app para Mac.**
+
+[**Baixar ZapIA 0.4.0 para Mac Apple Silicon (.dmg)**](https://github.com/mateusfrmacedo/ZapIA/releases/download/v0.4.0/ZapIA-apple-silicon.dmg) · [Versões e notas de lançamento](https://github.com/mateusfrmacedo/ZapIA/releases/latest)
+
+Requer macOS 14+ e Apple Silicon (M1 ou superior). Node e bridge já estão incluídos.
+O pacote usa assinatura ad-hoc e não tem notarização Apple.
 
 App nativo **macOS** (Apple Silicon) que conecta sua conta WhatsApp pessoal via WhatsApp Web (Baileys), deixa você escolher em quais chats ativar auto-reply, e gera respostas **locais** em português com **Qwen/MLX** (Qwen2.5 4-bit) ou **Apple Intelligence** (Foundation Models).
 
 > **Aviso:** o bridge usa cliente WhatsApp Web não oficial. Isso pode violar os Termos do WhatsApp/Meta e há risco de banimento da conta. Uso sob sua responsabilidade. Sem afiliação com Meta/WhatsApp. Inferência **não** usa APIs de LLM na nuvem.
+
+## O aplicativo
+
+Capturas reais do ZapIA em modo demonstração, com dados fictícios e WhatsApp simulado.
+
+**Atendimento: modo híbrido, saudação e expediente**
+
+![Tela Atendimento do ZapIA com modo Menu + IA, saudação e expediente](docs/images/atendimento.jpg)
+
+**Respostas programadas e atendentes**
+
+![Editor de respostas programadas e lista de atendentes do ZapIA](docs/images/respostas-e-atendentes.jpg)
+
+**Controle de auto-reply por conversa**
+
+![Lista de conversas fictícias com ativação individual do auto-reply](docs/images/chats.jpg)
 
 ## ZapIA 0.4 — união dos projetos
 
