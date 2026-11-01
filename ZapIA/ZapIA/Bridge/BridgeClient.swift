@@ -6,7 +6,7 @@ import CryptoKit
 /// JSON-RPC client over a Unix domain socket.
 ///
 /// Launch model (botchat-inspired):
-/// 1. On app open, try the default socket + `IAZAP_TOKEN=dev-token-change-me`
+/// 1. On app open, try the default socket + `ZAPIA_TOKEN=dev-token-change-me`
 /// 2. If offline, spawn Node bridge from resolved `bridge/` and reconnect
 /// 3. Surface `qr.update` immediately as a large in-app QR; clear when connected
 @MainActor
@@ -87,19 +87,42 @@ final class BridgeClient: ObservableObject {
 
     static func defaultSocketPath() -> String {
         let tmp = FileManager.default.temporaryDirectory.path
-        return (tmp as NSString).appendingPathComponent("iazap-bridge.sock")
+        return (tmp as NSString).appendingPathComponent("zapia-bridge.sock")
+    }
+
+    private static var runtimeEnvironment: [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        for (key, value) in env where key.hasPrefix("IAZAP_") {
+            let renamed = key.replacingOccurrences(of: "IAZAP_", with: "ZAPIA_")
+            if env[renamed] == nil { env[renamed] = value }
+        }
+        return env
+    }
+
+    private static func migrateData(at base: URL) {
+        let env = runtimeEnvironment
+        guard env["ZAPIA_AUTH"] == nil, env["ZAPIA_DATA"] == nil else { return }
+        let old = base.appendingPathComponent("IAZAP", isDirectory: true)
+        let target = base.appendingPathComponent("ZapIA", isDirectory: true)
+        if FileManager.default.fileExists(atPath: old.path), !FileManager.default.fileExists(atPath: target.path) {
+            // Copy preserves the original installation as a backup. Failure surfaces on launch.
+            do { try FileManager.default.copyItem(at: old, to: target) }
+            catch { NSLog("ZapIA: não foi possível migrar dados antigos: %@", error.localizedDescription) }
+        }
     }
 
     static func defaultAuthDirectory() -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
-        return base.appendingPathComponent("IAZAP/baileys-auth", isDirectory: true)
+        migrateData(at: base)
+        return base.appendingPathComponent("ZapIA/baileys-auth", isDirectory: true)
     }
 
     static func defaultDataDirectory() -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
-        return base.appendingPathComponent("IAZAP/data", isDirectory: true)
+        migrateData(at: base)
+        return base.appendingPathComponent("ZapIA/data", isDirectory: true)
     }
 
     // MARK: - Bootstrap (auto-start)
@@ -115,12 +138,12 @@ final class BridgeClient: ObservableObject {
         statusDetail = "Procurando bridge…"
         lastError = nil
 
-        if let envToken = ProcessInfo.processInfo.environment["IAZAP_TOKEN"], !envToken.isEmpty {
+        if let envToken = Self.runtimeEnvironment["ZAPIA_TOKEN"], !envToken.isEmpty {
             sessionToken = envToken
         } else {
             sessionToken = Self.defaultToken
         }
-        if let envSock = ProcessInfo.processInfo.environment["IAZAP_SOCKET"], !envSock.isEmpty {
+        if let envSock = Self.runtimeEnvironment["ZAPIA_SOCKET"], !envSock.isEmpty {
             socketPath = envSock
         } else {
             socketPath = Self.defaultSocketPath()
@@ -252,17 +275,17 @@ final class BridgeClient: ObservableObject {
         startStatusPolling()
         stopBridgeProcess()
         // Keep the shared default token so out-of-box matches README / Terminal.
-        if ProcessInfo.processInfo.environment["IAZAP_TOKEN"] == nil {
+        if Self.runtimeEnvironment["ZAPIA_TOKEN"] == nil {
             sessionToken = Self.defaultToken
         }
-        // Preserve IAZAP_SOCKET resolved during bootstrap.
+        // Preserve ZAPIA_SOCKET resolved during bootstrap.
         // Remove stale socket so the child can bind.
         try? FileManager.default.removeItem(atPath: socketPath)
 
-        let environment = ProcessInfo.processInfo.environment
-        let authURL = environment["IAZAP_AUTH"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+        let environment = Self.runtimeEnvironment
+        let authURL = environment["ZAPIA_AUTH"].map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? BridgeClient.defaultAuthDirectory()
-        let dataURL = environment["IAZAP_DATA"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+        let dataURL = environment["ZAPIA_DATA"].map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? BridgeClient.defaultDataDirectory()
         try? FileManager.default.createDirectory(at: authURL, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: dataURL, withIntermediateDirectories: true)
@@ -284,21 +307,21 @@ final class BridgeClient: ObservableObject {
         }
         process.currentDirectoryURL = bridgeDirectory
 
-        var env = ProcessInfo.processInfo.environment
+        var env = Self.runtimeEnvironment
         env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + (env["PATH"] ?? "/usr/bin:/bin")
         if let helper = Bundle.main.executableURL?.deletingLastPathComponent()
-            .deletingLastPathComponent().appendingPathComponent("Helpers/iazap-apple-engine"),
+            .deletingLastPathComponent().appendingPathComponent("Helpers/zapia-apple-engine"),
            FileManager.default.isExecutableFile(atPath: helper.path) {
-            env["IAZAP_APPLE_HELPER"] = helper.path
+            env["ZAPIA_APPLE_HELPER"] = helper.path
         }
-        env["IAZAP_SOCKET"] = socketPath
-        env["IAZAP_TOKEN"] = sessionToken
-        env["IAZAP_AUTH"] = authURL.path
-        env["IAZAP_DATA"] = dataURL.path
+        env["ZAPIA_SOCKET"] = socketPath
+        env["ZAPIA_TOKEN"] = sessionToken
+        env["ZAPIA_AUTH"] = authURL.path
+        env["ZAPIA_DATA"] = dataURL.path
         if stubWhatsApp {
-            env["IAZAP_STUB_WA"] = "1"
+            env["ZAPIA_STUB_WA"] = "1"
         } else {
-            env.removeValue(forKey: "IAZAP_STUB_WA")
+            env.removeValue(forKey: "ZAPIA_STUB_WA")
         }
         process.environment = env
 
@@ -693,6 +716,30 @@ final class BridgeClient: ObservableObject {
             }
         }
         chats = merged
+    }
+
+    func getAutomation() async throws -> AutomationConfig {
+        try await request(method: "automation.get", params: EmptyParams())
+    }
+
+    func saveAutomation(_ config: AutomationConfig) async throws -> AutomationConfig {
+        try await request(method: "automation.save", params: config)
+    }
+
+    func previewAutomationImport(_ data: Data) async throws -> AutomationConfig {
+        struct RawJSON: Encodable {
+            let object: Any
+            func encode(to encoder: Encoder) throws {
+                let data = try JSONSerialization.data(withJSONObject: object)
+                let json = try JSONDecoder().decode(JSONValue.self, from: data)
+                try json.encode(to: encoder)
+            }
+        }
+        return try await request(method: "automation.preview", params: RawJSON(object: try JSONSerialization.jsonObject(with: data)))
+    }
+
+    func sendBroadcast(_ params: BroadcastParams) async throws -> BroadcastResult {
+        try await request(method: "broadcast.send", params: params, timeoutSeconds: 180)
     }
 
     private func request<T: Decodable>(method: String, params: Encodable, timeoutSeconds: Double = 15) async throws -> T {

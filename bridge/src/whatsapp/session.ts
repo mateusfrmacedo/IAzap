@@ -20,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Chat, InboundMessage, SessionMe, SessionStatus } from "../protocol/types.js";
 
-const log = pino({ level: process.env.IAZAP_LOG_LEVEL ?? "info" });
+const log = pino({ level: process.env.ZAPIA_LOG_LEVEL ?? "info" });
 
 export type WhatsAppSessionEvents = {
   status: [SessionStatus];
@@ -56,6 +56,7 @@ export class WhatsAppSession extends EventEmitter {
   private contactNames = new Map<string, string>();
   /** When true, connection.close must not soft-reconnect. */
   private intentionalStop = false;
+  private readyAt = 0;
   private startTask: Promise<void> | null = null;
   private epoch = 0;
   private reconnectAttempts = 0;
@@ -226,6 +227,7 @@ export class WhatsAppSession extends EventEmitter {
       }
 
       if (connection === "open") {
+        if (!this.readyAt) this.readyAt = Date.now();
         this.reconnectAttempts = 0;
         const me = this.resolveMe();
         this.setStatus({ state: "connected", me, lastError: null });
@@ -244,7 +246,7 @@ export class WhatsAppSession extends EventEmitter {
         this.emit("qr", null);
         if (statusCode === DisconnectReason.connectionReplaced) {
           this.setStatus({ state: "error", me: null,
-            lastError: "WhatsApp aberto por outra instância do IAZAP. Feche a outra cópia e use Reconectar." });
+            lastError: "WhatsApp aberto por outra instância do ZapIA. Feche a outra cópia e use Reconectar." });
           return;
         }
 
@@ -313,7 +315,7 @@ export class WhatsAppSession extends EventEmitter {
       if (!isCurrent()) return;
       if (type !== "notify" && type !== "append") return;
       for (const msg of messages) {
-        this.handleInbound(msg);
+        this.handleInbound(msg, type === "notify");
       }
     });
   }
@@ -416,7 +418,7 @@ export class WhatsAppSession extends EventEmitter {
     this.chatCache.set(id, chat);
   }
 
-  private handleInbound(msg: WAMessage): void {
+  private handleInbound(msg: WAMessage, live = true): void {
     const chatId = msg.key.remoteJid;
     if (!chatId || chatId === "status@broadcast") return;
 
@@ -449,7 +451,8 @@ export class WhatsAppSession extends EventEmitter {
       fromMe,
       timestamp,
     };
-    this.emit("inbound", inbound);
+    // Cache history for the UI, but never automate historical sync/backlog.
+    if (live && this.readyAt > 0 && timestamp >= this.readyAt - 1000) this.emit("inbound", inbound);
   }
 }
 

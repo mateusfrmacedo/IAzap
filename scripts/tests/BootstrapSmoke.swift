@@ -9,20 +9,20 @@ struct BootstrapSmoke {
     }
     @MainActor static func run() async {
         defer {
-            if let id = Bundle.main.bundleIdentifier, id.hasPrefix("app.iazap.smoke-test.") {
+            if let id = Bundle.main.bundleIdentifier, id.hasPrefix("app.zapia.smoke-test.") {
                 UserDefaults.standard.removePersistentDomain(forName: id)
             }
         }
         let bridge = BridgeClient()
         let store = AppStore()
-        let expectsEnabled = ProcessInfo.processInfo.environment["IAZAP_TEST_RECOVERY"] == "1"
-            || ProcessInfo.processInfo.environment["IAZAP_TEST_HANG"] == "1"
+        let expectsEnabled = ProcessInfo.processInfo.environment["ZAPIA_TEST_RECOVERY"] == "1"
+            || ProcessInfo.processInfo.environment["ZAPIA_TEST_HANG"] == "1"
         store.autoReplyEnabled = expectsEnabled
         store.cooldownMs = 0
         guard AppStore().cooldownMs == 0 else {
             print("FAIL: zero cooldown was not persisted"); exit(1)
         }
-        let testApple = ProcessInfo.processInfo.environment["IAZAP_TEST_APPLE"] == "1"
+        let testApple = ProcessInfo.processInfo.environment["ZAPIA_TEST_APPLE"] == "1"
         store.preferredModelId = testApple ? "apple-intelligence" : AppStore.defaultModelId
         bridge.attach(store: store)
         await bridge.bootstrapOnLaunch(stubWhatsApp: true)
@@ -32,7 +32,7 @@ struct BootstrapSmoke {
             bridge.disconnect()
             exit(1)
         }
-        if ProcessInfo.processInfo.environment["IAZAP_PACKAGED_TEST"] == "1" {
+        if ProcessInfo.processInfo.environment["ZAPIA_PACKAGED_TEST"] == "1" {
             guard bridge.bridgeDirectoryPath.hasPrefix(Bundle.main.bundleURL.path) else {
                 print("FAIL: packaged app resolved external bridge: \(bridge.bridgeDirectoryPath)")
                 bridge.disconnect()
@@ -51,6 +51,22 @@ struct BootstrapSmoke {
             print("PASS: saved Apple preference survives initial bridge defaults; native model ready")
         }
         print("PASS: cold bootstrap, managed Node, custom socket, authenticated IPC, stub chats")
+        do {
+            let original = try await bridge.getAutomation()
+            let legacy = Data(#"{"configuracoes":{"saudacao":"Olá, {nome}!"},"opcoes":[{"id":"info","titulo_menu":"Informações","texto_resposta":"Texto importado","ativo":true}]}"#.utf8)
+            let imported = try await bridge.previewAutomationImport(legacy)
+            guard imported.mode == "menu", imported.opcoes.first?.resposta == "Texto importado" else {
+                print("FAIL: legacy automation preview"); bridge.disconnect(); exit(1)
+            }
+            let unchanged = try await bridge.getAutomation()
+            guard unchanged.mode == original.mode else { print("FAIL: preview mutated settings"); exit(1) }
+            let saved = try await bridge.saveAutomation(imported)
+            guard saved.opcoes.first?.titulo == "Informações", saved.mode == "menu" else {
+                print("FAIL: automation persistence"); bridge.disconnect(); exit(1)
+            }
+            _ = try await bridge.saveAutomation(original)
+            print("PASS: native BotChat import preview and persisted automation via authenticated RPC")
+        } catch { print("FAIL: automation RPC: \(error)"); bridge.disconnect(); exit(1) }
         let editedPrompt = "  Seu nome é Joa\u{0303}o. Você não usa emoji nas conversas!  "
         store.systemPromptPT = editedPrompt
         let applyDeadline = Date().addingTimeInterval(8)
@@ -63,8 +79,8 @@ struct BootstrapSmoke {
             bridge.disconnect(); exit(1)
         }
         print("PASS: prompt edits auto-apply with verified active fingerprint, preserving other settings")
-        let testHang = ProcessInfo.processInfo.environment["IAZAP_TEST_HANG"] == "1"
-        let testRecovery = ProcessInfo.processInfo.environment["IAZAP_TEST_RECOVERY"] == "1" || testHang
+        let testHang = ProcessInfo.processInfo.environment["ZAPIA_TEST_HANG"] == "1"
+        let testRecovery = ProcessInfo.processInfo.environment["ZAPIA_TEST_RECOVERY"] == "1" || testHang
         if testRecovery {
             let before = childPID()
             guard before > 0 else { print("FAIL: managed child not found"); exit(1) }

@@ -132,7 +132,7 @@ struct SettingsView: View {
             }
 
             Section("Aviso") {
-                Text("IAZAP usa cliente WhatsApp Web não oficial (Baileys). Isso pode violar os Termos do WhatsApp/Meta e há risco de banimento da conta. Uso sob sua responsabilidade. Inferência é 100% local (sem API de LLM na nuvem).")
+                Text("ZapIA usa cliente WhatsApp Web não oficial (Baileys). Isso pode violar os Termos do WhatsApp/Meta e há risco de banimento da conta. Uso sob sua responsabilidade. Inferência é 100% local (sem API de LLM na nuvem).")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }

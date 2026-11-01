@@ -111,7 +111,7 @@ struct StatusView: View {
                 Text("Detalhe: \(bridge.statusDetail)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                TextField("Pasta do bridge (…/IAzap/bridge)", text: $bridgeDirText)
+                TextField("Pasta do bridge (…/ZapIA/bridge)", text: $bridgeDirText)
                 HStack {
                     Button("Auto-iniciar (recomendado)") {
                         if let url = BridgeLocator.resolve() ?? optionalBridgeURL() {
@@ -229,7 +229,7 @@ struct StatusView: View {
     private func defaultBridgeHint() -> String {
         BridgeLocator.resolve()?.path
             ?? FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Developer/IAzap/bridge", isDirectory: true)
+                .appendingPathComponent("Developer/ZapIA/bridge", isDirectory: true)
                 .path
     }
 }

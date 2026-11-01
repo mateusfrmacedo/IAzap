@@ -1,4 +1,4 @@
-"""Known MLX chat models for IAZAP (Qwen2.5 4-bit community builds)."""
+"""Known MLX chat models for ZapIA (Qwen2.5 4-bit community builds)."""
 
 from __future__ import annotations
 

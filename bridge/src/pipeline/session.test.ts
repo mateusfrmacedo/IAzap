@@ -12,7 +12,7 @@ async function waitFor(check: () => boolean) {
   assert.fail("Session did not recover");
 }
 function setup(t: { after: (fn: () => Promise<void>) => void }, overrides: Partial<SessionDependencies> = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "iazap-session-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zapia-session-"));
   fs.writeFileSync(path.join(dir, "keep-auth"), "test credentials");
   const sockets: Array<{ ev: EventEmitter; end: () => void; user: { id: string; name: string } }> = [];
   const deps = {
@@ -88,4 +88,19 @@ it("stop cancels an asynchronous startup and scheduled retry", async (t) => {
   await retrying.session.stop();
   await delay(30);
   assert.equal(retrying.sockets.length, 1);
+});
+
+it("caches history but emits only live messages received after startup", async t => {
+  const h = setup(t); await h.session.start();
+  const ev=h.sockets[0]!.ev;
+  ev.emit("connection.update", {connection:"open"});
+  const inbound: unknown[]=[]; h.session.on("inbound", m=>inbound.push(m));
+  const message=(id:string, ts:number)=>({key:{remoteJid:"test@s.whatsapp.net",id,fromMe:false},message:{conversation:"oi"},messageTimestamp:ts});
+  const now=Math.floor(Date.now()/1000);
+  ev.emit("messages.upsert",{type:"append",messages:[message("history",now)]});
+  ev.emit("messages.upsert",{type:"notify",messages:[message("backlog",now-120)]});
+  ev.emit("messages.upsert",{type:"notify",messages:[message("live",now)]});
+  assert.equal(inbound.length,1);
+  assert.equal((inbound[0] as any).messageId,"live");
+  assert.equal(h.session.listChats().length,1);
 });

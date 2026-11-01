@@ -1,6 +1,6 @@
 /**
  * Local message store for context windows (SQLite via node:sqlite).
- * Persists recent text messages per chat under Application Support / IAZAP_DATA.
+ * Persists recent text messages per chat under Application Support / ZAPIA_DATA.
  */
 
 import fs from "node:fs";

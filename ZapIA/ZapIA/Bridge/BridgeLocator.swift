@@ -2,13 +2,13 @@ import Foundation
 
 /// Resolves the on-disk `bridge/` package (Node + Baileys) for the macOS app to spawn.
 enum BridgeLocator {
-    private static let defaultsKey = "iazap.bridgeDirectory"
+    private static let defaultsKey = "zapia.bridgeDirectory"
 
     /// Prefer env → UserDefaults → build-phase tip file → bundled Resources/bridge → common clone paths.
     static func resolve() -> URL? {
         let fm = FileManager.default
 
-        if let env = ProcessInfo.processInfo.environment["IAZAP_BRIDGE_DIR"], !env.isEmpty {
+        if let env = ProcessInfo.processInfo.environment["ZAPIA_BRIDGE_DIR"] ?? ProcessInfo.processInfo.environment["IAZAP_BRIDGE_DIR"], !env.isEmpty {
             let url = URL(fileURLWithPath: env, isDirectory: true)
             if isBridgePackage(url) { return url }
         }
@@ -75,13 +75,13 @@ enum BridgeLocator {
         return [
             cwd.appendingPathComponent("bridge", isDirectory: true),
             cwd.appendingPathComponent("../bridge", isDirectory: true).standardizedFileURL,
-            home.appendingPathComponent("Developer/IAzap/bridge", isDirectory: true),
-            home.appendingPathComponent("Developer/iazap/bridge", isDirectory: true),
-            home.appendingPathComponent("Projects/IAzap/bridge", isDirectory: true),
-            home.appendingPathComponent("src/IAzap/bridge", isDirectory: true),
-            home.appendingPathComponent("IAzap/bridge", isDirectory: true),
-            home.appendingPathComponent("Documents/IAzap/bridge", isDirectory: true),
-            home.appendingPathComponent("Desktop/IAzap/bridge", isDirectory: true),
+            home.appendingPathComponent("Developer/ZapIA/bridge", isDirectory: true),
+            home.appendingPathComponent("Developer/zapia/bridge", isDirectory: true),
+            home.appendingPathComponent("Projects/ZapIA/bridge", isDirectory: true),
+            home.appendingPathComponent("src/ZapIA/bridge", isDirectory: true),
+            home.appendingPathComponent("ZapIA/bridge", isDirectory: true),
+            home.appendingPathComponent("Documents/ZapIA/bridge", isDirectory: true),
+            home.appendingPathComponent("Desktop/ZapIA/bridge", isDirectory: true),
         ]
     }
 }

@@ -8,14 +8,14 @@ import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const runtime = fs.mkdtempSync(path.join(os.tmpdir(), 'iazap-engines-'));
+const runtime = fs.mkdtempSync(path.join(os.tmpdir(), 'zapia-engines-'));
 const socketPath = path.join(runtime, 'bridge.sock');
 let logs = '';
 const child = spawn(process.execPath, ['--import', 'tsx', 'src/index.ts'], {
   cwd: path.join(root, 'bridge'),
-  env: { ...process.env, IAZAP_STUB_WA: '1', IAZAP_ENGINE: 'auto', IAZAP_SOCKET: socketPath,
-    IAZAP_TOKEN: 'engine-smoke', IAZAP_AUTH: path.join(runtime, 'auth'), IAZAP_DATA: path.join(runtime, 'data'),
-    IAZAP_APPLE_HELPER: process.env.IAZAP_APPLE_HELPER ?? path.join(root, 'bridge/bin/iazap-apple-engine') },
+  env: { ...process.env, ZAPIA_STUB_WA: '1', ZAPIA_ENGINE: 'auto', ZAPIA_SOCKET: socketPath,
+    ZAPIA_TOKEN: 'engine-smoke', ZAPIA_AUTH: path.join(runtime, 'auth'), ZAPIA_DATA: path.join(runtime, 'data'),
+    ZAPIA_APPLE_HELPER: process.env.ZAPIA_APPLE_HELPER ?? path.join(root, 'bridge/bin/zapia-apple-engine') },
   stdio: ['ignore', 'ignore', 'pipe'],
 });
 child.stderr.on('data', data => logs += data);
@@ -47,7 +47,7 @@ try {
       socket.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
     });
   }
-  await call('session.hello', { token: 'engine-smoke', client: 'iazap-macos', protocolVersion: 1 });
+  await call('session.hello', { token: 'engine-smoke', client: 'zapia-macos', protocolVersion: 1 });
   const chatId = '5511999999999@s.whatsapp.net';
   await call('chats.syncSelection', { chatIds: [chatId] });
   await call('pipeline.configure', { enabled: true, debounceMs: 0, cooldownMs: 0 });

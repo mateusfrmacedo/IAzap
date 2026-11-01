@@ -1,5 +1,5 @@
 /**
- * IAZAP shared IPC types — protocolVersion 1 (Phase 3 pipeline + Phase 4 model.*).
+ * ZapIA shared IPC types — protocolVersion 1 (Phase 3 pipeline + Phase 4 model.*).
  * Consumed by the Node bridge; mirrored in Swift (BridgeProtocol.swift).
  */
 
@@ -44,7 +44,7 @@ export interface InboundMessage {
 /** Client → bridge request params */
 export interface SessionHelloParams {
   token: string;
-  client: "iazap-macos";
+  client: "zapia-macos";
   protocolVersion: typeof PROTOCOL_VERSION;
 }
 

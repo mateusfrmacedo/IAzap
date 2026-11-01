@@ -26,7 +26,7 @@ def build_chatml(system_prompt: str, turns: list[dict[str, Any]]) -> str:
 
 
 def mock_portuguese_reply(latest_user: str, turn_count: int) -> str:
-    """Deterministic PT-BR reply used when IAZAP_MLX_MOCK=1 (no Metal)."""
+    """Deterministic PT-BR reply used when ZAPIA_MLX_MOCK=1 (no Metal)."""
     preview = (latest_user or "").strip().replace("\n", " ")
     if len(preview) > 80:
         preview = preview[:79] + "…"

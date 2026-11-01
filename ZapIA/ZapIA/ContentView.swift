@@ -10,10 +10,11 @@ struct ContentView: View {
             List(selection: $selection) {
                 Label("Parear", systemImage: "qrcode").tag(SidebarItem.onboarding)
                 Label("Chats", systemImage: "bubble.left.and.bubble.right").tag(SidebarItem.chats)
+                Label("Atendimento", systemImage: "list.bullet.rectangle").tag(SidebarItem.automation)
                 Label("Status", systemImage: "antenna.radiowaves.left.and.right").tag(SidebarItem.status)
                 Label("Ajustes", systemImage: "gearshape").tag(SidebarItem.settings)
             }
-            .navigationTitle("IAZAP")
+            .navigationTitle("ZapIA")
             .listStyle(.sidebar)
         } detail: {
             switch selection ?? .onboarding {
@@ -21,6 +22,8 @@ struct ContentView: View {
                 OnboardingView()
             case .chats:
                 ChatListView()
+            case .automation:
+                AutomationView()
             case .status:
                 StatusView()
             case .settings:
@@ -60,7 +63,7 @@ struct ContentView: View {
 }
 
 private enum SidebarItem: Hashable {
-    case onboarding, chats, status, settings
+    case onboarding, chats, automation, status, settings
 }
 
 #Preview {

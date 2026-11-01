@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A10000000000000000000002"
-               BuildableName = "IAZAP.app"
-               BlueprintName = "IAZAP"
-               ReferencedContainer = "container:IAZAP.xcodeproj">
+               BuildableName = "ZapIA.app"
+               BlueprintName = "ZapIA"
+               ReferencedContainer = "container:ZapIA.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -44,24 +44,24 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A10000000000000000000002"
-            BuildableName = "IAZAP.app"
-            BlueprintName = "IAZAP"
-            ReferencedContainer = "container:IAZAP.xcodeproj">
+            BuildableName = "ZapIA.app"
+            BlueprintName = "ZapIA"
+            ReferencedContainer = "container:ZapIA.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <EnvironmentVariables>
          <EnvironmentVariable
-            key = "IAZAP_BRIDGE_DIR"
+            key = "ZAPIA_BRIDGE_DIR"
             value = "$(SRCROOT)/../bridge"
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
-            key = "IAZAP_TOKEN"
+            key = "ZAPIA_TOKEN"
             value = "dev-token-change-me"
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
-            key = "IAZAP_SOCKET"
+            key = "ZAPIA_SOCKET"
             value = ""
             isEnabled = "NO">
          </EnvironmentVariable>
@@ -78,9 +78,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A10000000000000000000002"
-            BuildableName = "IAZAP.app"
-            BlueprintName = "IAZAP"
-            ReferencedContainer = "container:IAZAP.xcodeproj">
+            BuildableName = "ZapIA.app"
+            BlueprintName = "ZapIA"
+            ReferencedContainer = "container:ZapIA.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

@@ -14,9 +14,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const bridgeRoot = path.resolve(__dirname, "..");
-const socketPath = path.join(os.tmpdir(), `iazap-smoke-${process.pid}.sock`);
+const socketPath = path.join(os.tmpdir(), `zapia-smoke-${process.pid}.sock`);
 const token = "smoke-token";
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "iazap-smoke-data-"));
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "zapia-smoke-data-"));
 
 type RpcMsg = {
   id?: number;
@@ -98,12 +98,12 @@ async function main(): Promise<void> {
       cwd: bridgeRoot,
       env: {
         ...process.env,
-        IAZAP_SOCKET: socketPath,
-        IAZAP_TOKEN: token,
-        IAZAP_STUB_WA: "1",
-        IAZAP_ENGINE: "stub",
-        IAZAP_DATA: dataDir,
-        IAZAP_AUTH: path.join(dataDir, "auth"),
+        ZAPIA_SOCKET: socketPath,
+        ZAPIA_TOKEN: token,
+        ZAPIA_STUB_WA: "1",
+        ZAPIA_ENGINE: "stub",
+        ZAPIA_DATA: dataDir,
+        ZAPIA_AUTH: path.join(dataDir, "auth"),
       },
       stdio: ["ignore", "ignore", "pipe"],
     },
@@ -122,7 +122,7 @@ async function main(): Promise<void> {
 
     const hello = await client.call("session.hello", {
       token,
-      client: "iazap-macos",
+      client: "zapia-macos",
       protocolVersion: 1,
     });
     if (hello.error) throw new Error(JSON.stringify(hello.error));

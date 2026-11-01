@@ -8,7 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { RpcServer, type MethodHandlers } from "../rpc/server.js";
 
 it("replays the latest pairing QR only after authentication, including its removal", async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "iazap-qr-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zapia-qr-"));
   const socketPath = path.join(dir, "rpc.sock");
   const server = new RpcServer("test-token", {} as MethodHandlers);
   await server.listen(socketPath);

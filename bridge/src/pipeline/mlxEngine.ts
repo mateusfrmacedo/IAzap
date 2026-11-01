@@ -33,7 +33,7 @@ export type MlxServiceStatus = {
 const DEFAULT_MLX_URL = "http://127.0.0.1:8742";
 
 export function defaultMlxServiceUrl(): string {
-  return (process.env.IAZAP_MLX_URL ?? DEFAULT_MLX_URL).replace(/\/$/, "");
+  return (process.env.ZAPIA_MLX_URL ?? DEFAULT_MLX_URL).replace(/\/$/, "");
 }
 
 export class MLXReplyEngine implements ReplyEngine {
@@ -143,7 +143,7 @@ export class MLXReplyEngine implements ReplyEngine {
 export type EngineMode = "auto" | "mlx" | "stub";
 
 export function resolveEngineMode(raw?: string): EngineMode {
-  const v = (raw ?? process.env.IAZAP_ENGINE ?? "auto").toLowerCase();
+  const v = (raw ?? process.env.ZAPIA_ENGINE ?? "auto").toLowerCase();
   if (v === "mlx" || v === "stub" || v === "auto") return v;
   return "auto";
 }
@@ -287,7 +287,7 @@ export class ManagedReplyEngine implements ReplyEngine {
 
   async reload(): Promise<ModelStatus> {
     if (this.mode === "stub") {
-      this.lastError = "IAZAP_ENGINE=stub — reload MLX ignorado.";
+      this.lastError = "ZAPIA_ENGINE=stub — reload MLX ignorado.";
       return this.getStatus();
     }
     try {

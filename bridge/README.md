@@ -1,4 +1,4 @@
-# IAZAP Bridge (Node + Baileys)
+# ZapIA Bridge (Node + Baileys)
 
 Sidecar that owns the WhatsApp Web multi-device session, runs the **auto-reply pipeline**, talks to **mlx-service** for Portuguese replies (Phase 4), and speaks JSON-RPC to the macOS app over a Unix domain socket.
 
@@ -23,28 +23,28 @@ O app macOS costuma chamar `npm run serve` sozinho (filho do processo). Manual:
 
 ```bash
 # Estável (sem watch) — o que o app spawna
-IAZAP_TOKEN=dev-token-change-me npm run serve
+ZAPIA_TOKEN=dev-token-change-me npm run serve
 
 # Dev com reload
-IAZAP_TOKEN=dev-token-change-me npm run dev
+ZAPIA_TOKEN=dev-token-change-me npm run dev
 
 # Force stub
-IAZAP_ENGINE=stub IAZAP_TOKEN=dev-token-change-me npm run serve
+ZAPIA_ENGINE=stub ZAPIA_TOKEN=dev-token-change-me npm run serve
 
 # IPC + pipeline smoke without contacting WhatsApp
-IAZAP_STUB_WA=1 IAZAP_TOKEN=dev-token-change-me npm run serve
+ZAPIA_STUB_WA=1 ZAPIA_TOKEN=dev-token-change-me npm run serve
 ```
 
 | Env | Default |
 |---|---|
-| `IAZAP_SOCKET` | `$TMPDIR/iazap-bridge.sock` |
-| `IAZAP_TOKEN` | `dev-token-change-me` |
-| `IAZAP_AUTH` | `~/Library/Application Support/IAZAP/baileys-auth` (macOS) |
-| `IAZAP_DATA` | `~/Library/Application Support/IAZAP/data` (`messages.sqlite`) |
-| `IAZAP_STUB_WA` | unset (real Baileys) |
-| `IAZAP_ENGINE` | `auto` |
-| `IAZAP_MLX_URL` | `http://127.0.0.1:8742` |
-| `IAZAP_MLX_MODEL` | `qwen2.5-7b-instruct-4bit` |
+| `ZAPIA_SOCKET` | `$TMPDIR/zapia-bridge.sock` |
+| `ZAPIA_TOKEN` | `dev-token-change-me` |
+| `ZAPIA_AUTH` | `~/Library/Application Support/ZapIA/baileys-auth` (macOS) |
+| `ZAPIA_DATA` | `~/Library/Application Support/ZapIA/data` (`messages.sqlite`) |
+| `ZAPIA_STUB_WA` | unset (real Baileys) |
+| `ZAPIA_ENGINE` | `auto` |
+| `ZAPIA_MLX_URL` | `http://127.0.0.1:8742` |
+| `ZAPIA_MLX_MODEL` | `qwen2.5-7b-instruct-4bit` |
 
 ## Scripts
 

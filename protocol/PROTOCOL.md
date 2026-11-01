@@ -1,4 +1,4 @@
-# IAZAP Bridge Protocol (Phase 3–4)
+# ZapIA Bridge Protocol (Phase 3–4)
 
 JSON-RPC 2.0 over a **Unix domain socket** (preferred) or TCP `127.0.0.1` with a session token.
 
@@ -6,12 +6,12 @@ JSON-RPC 2.0 over a **Unix domain socket** (preferred) or TCP `127.0.0.1` with a
 
 | Setting | Value |
 |---|---|
-| Default socket | `$TMPDIR/iazap-bridge.sock` (or path passed by the macOS app) |
+| Default socket | `$TMPDIR/zapia-bridge.sock` (or path passed by the macOS app) |
 | Framing | **Newline-delimited** JSON (one JSON-RPC object per line) |
 | Auth | First request after connect must be `session.hello` with `token` minted by the app |
 | Encoding | UTF-8 |
 
-The macOS app launches the Node bridge as a child process, writes the socket path + token + auth dir to env (`IAZAP_SOCKET`, `IAZAP_TOKEN`, `IAZAP_AUTH`, `IAZAP_DATA`), then connects as JSON-RPC client.
+The macOS app launches the Node bridge as a child process, writes the socket path + token + auth dir to env (`ZAPIA_SOCKET`, `ZAPIA_TOKEN`, `ZAPIA_AUTH`, `ZAPIA_DATA`), then connects as JSON-RPC client.
 
 Direction model:
 
@@ -40,12 +40,12 @@ Direction model:
 
 Authenticate the IPC session.
 
-**Params:** `{ "token": string, "client": "iazap-macos", "protocolVersion": 1 }`  
+**Params:** `{ "token": string, "client": "zapia-macos", "protocolVersion": 1 }`
 **Result:** `{ "ok": true, "protocolVersion": 1 }`
 
 ### `session.status`
 
-**Params:** `{}`  
+**Params:** `{}`
 **Result:**
 
 ```json
@@ -62,14 +62,14 @@ Also pushed as a notification with the same `params` shape when state changes (`
 
 Restart the Baileys socket without wiping auth (unless already logged out).
 
-**Params:** `{}`  
+**Params:** `{}`
 **Result:** `SessionStatus` (same shape as `session.status`)
 
 ### `session.logout`
 
-Log out of WhatsApp multi-device and wipe local auth files under `IAZAP_AUTH`. Next reconnect emits a fresh QR.
+Log out of WhatsApp multi-device and wipe local auth files under `ZAPIA_AUTH`. Next reconnect emits a fresh QR.
 
-**Params:** `{}`  
+**Params:** `{}`
 **Result:** `SessionStatus` (typically `logged_out`)
 
 ### `qr.update` (notification only)
@@ -82,7 +82,7 @@ Log out of WhatsApp multi-device and wipe local auth files under `IAZAP_AUTH`. N
 
 ### `chats.list`
 
-**Params:** `{}`  
+**Params:** `{}`
 **Result:** `{ "chats": Chat[] }`
 
 ```ts
@@ -106,7 +106,7 @@ Pushed when the bridge chat cache changes (upsert/update/inbound).
 
 ### `chats.setAutoReply`
 
-**Params:** `{ "chatId": string, "enabled": boolean }`  
+**Params:** `{ "chatId": string, "enabled": boolean }`
 **Result:** `{ "ok": true, "chatId": string, "enabled": boolean }`
 
 The Swift `AppStore` / UserDefaults remains the selection source of truth. The bridge mirrors flags so the message pipeline can filter.
@@ -115,7 +115,7 @@ The Swift `AppStore` / UserDefaults remains the selection source of truth. The b
 
 Bulk replace the mirrored selection set (enabled JIDs only). Call after `session.hello` so the bridge matches UserDefaults.
 
-**Params:** `{ "chatIds": string[] }`  
+**Params:** `{ "chatIds": string[] }`
 **Result:** `{ "ok": true, "chatIds": string[] }`
 
 ### `messages.inbound` (notification only)
@@ -134,7 +134,7 @@ Text-only. Media is ignored by the bridge (or omitted). The bridge also feeds th
 
 ### `messages.send`
 
-**Params:** `{ "chatId": string, "text": string }`  
+**Params:** `{ "chatId": string, "text": string }`
 **Result:** `{ "messageId": string }`
 
 Manual/test send. The Phase 3 pipeline also calls the same Baileys path internally after generating a stub (or future MLX) reply.
@@ -143,16 +143,16 @@ Manual/test send. The Phase 3 pipeline also calls the same Baileys path internal
 
 Auto-reply runs **inside the bridge**:
 
-1. Persist inbound text (SQLite under `IAZAP_DATA`)
+1. Persist inbound text (SQLite under `ZAPIA_DATA`)
 2. Filter: `fromMe`, groups (off by default), chat not in selection, global kill switch
 3. Debounce per chat → build context window → `ReplyEngine.generate` → send
 4. Cooldown per chat after a successful send (anti-loop / rate)
 
-`ManagedReplyEngine` prefers the local **mlx-service** (`engineId` like `mlx:qwen2.5-7b-instruct-4bit` or `mlx-mock:…`). If the service is down, it falls back to `StubReplyEngine` (`engineId: "stub"`) unless `IAZAP_ENGINE=mlx` (then generate errors surface in the pipeline).
+`ManagedReplyEngine` prefers the local **mlx-service** (`engineId` like `mlx:qwen2.5-7b-instruct-4bit` or `mlx-mock:…`). If the service is down, it falls back to `StubReplyEngine` (`engineId: "stub"`) unless `ZAPIA_ENGINE=mlx` (then generate errors surface in the pipeline).
 
 ### `pipeline.getStatus`
 
-**Params:** `{}`  
+**Params:** `{}`
 **Result:** `PipelineStatus`
 
 ```ts
@@ -177,7 +177,7 @@ Also pushed as notification `pipeline.status` when phase / enabled / config chan
 
 Global kill switch (does **not** clear chat selection).
 
-**Params:** `{ "enabled": boolean }`  
+**Params:** `{ "enabled": boolean }`
 **Result:** `PipelineStatus`
 
 ### `pipeline.configure`
@@ -202,7 +202,7 @@ Partial update of knobs (+ optional `enabled`).
 
 ### `pipeline.getActivity`
 
-**Params:** `{ "limit"?: number }`  
+**Params:** `{ "limit"?: number }`
 **Result:** `{ "activities": PipelineActivity[] }` (newest first)
 
 ```ts
@@ -232,9 +232,9 @@ Pushed for each activity entry (same shape as one `PipelineActivity`).
 
 ### `pipeline.simulateInbound`
 
-Dev / stub helper: inject a text inbound into the pipeline (and notify `messages.inbound`). Useful with `IAZAP_STUB_WA=1` where send is faked locally.
+Dev / stub helper: inject a text inbound into the pipeline (and notify `messages.inbound`). Useful with `ZAPIA_STUB_WA=1` where send is faked locally.
 
-**Params:** `{ "chatId": string, "text": string, "fromMe"?: boolean, "isGroup"?: boolean }`  
+**Params:** `{ "chatId": string, "text": string, "fromMe"?: boolean, "isGroup"?: boolean }`
 **Result:** `{ "ok": true, "messageId": string }`
 
 ## Model / MLX (Phase 4)
@@ -243,7 +243,7 @@ Inference runs in **`mlx-service/`** (Python + `mlx-lm` on Apple Silicon). The b
 
 ### `model.getStatus`
 
-**Params:** `{}`  
+**Params:** `{}`
 **Result:** `ModelStatus`
 
 ```ts
@@ -270,13 +270,13 @@ Also pushed as notification `model.status` after configure/reload/startup.
 
 ### `model.configure`
 
-**Params:** `{ "modelId": string }` — catalog id (`qwen2.5-7b-instruct-4bit` | `qwen2.5-3b-instruct-4bit`) or HF repo  
+**Params:** `{ "modelId": string }` — catalog id (`qwen2.5-7b-instruct-4bit` | `qwen2.5-3b-instruct-4bit`) or HF repo
 **Result:** `ModelStatus`
 
 ### `model.reload`
 
-Trigger weight load / HF download via mlx-service.  
-**Params:** `{}`  
+Trigger weight load / HF download via mlx-service.
+**Params:** `{}`
 **Result:** `ModelStatus`
 
 ## Error codes
@@ -295,17 +295,17 @@ Trigger weight load / HF download via mlx-service.
 
 | Env | Default (macOS) | Contents |
 |---|---|---|
-| `IAZAP_AUTH` | `~/Library/Application Support/IAZAP/baileys-auth` | Baileys multi-file creds |
-| `IAZAP_DATA` | `~/Library/Application Support/IAZAP/data` | `messages.sqlite` context store |
+| `ZAPIA_AUTH` | `~/Library/Application Support/ZapIA/baileys-auth` | Baileys multi-file creds |
+| `ZAPIA_DATA` | `~/Library/Application Support/ZapIA/data` | `messages.sqlite` context store |
 
-`session.logout` deletes contents of `IAZAP_AUTH` only (message DB kept unless the user wipes Application Support).
+`session.logout` deletes contents of `ZAPIA_AUTH` only (message DB kept unless the user wipes Application Support).
 
 ## Versioning
 
 `protocolVersion: 1` — Phase 3–4 add pipeline + model methods/notifications without breaking older clients that ignore unknown notifications. Shared types live in:
 
 - `protocol/types.ts` (TypeScript source of truth for the bridge)
-- `IAZAP/IAZAP/Bridge/BridgeProtocol.swift` (Swift mirror)
+- `ZapIA/ZapIA/Bridge/BridgeProtocol.swift` (Swift mirror)
 
 ## Reconexão do cliente e QR
 
@@ -338,3 +338,24 @@ espaços externos e normalizado em Unicode NFC. O conteúdo do prompt não é in
 nesse status. Atualizações do prompt são aplicadas ao receber `pipeline.configure`,
 antes de aguardar configurações lentas do modelo, para que uma edição antiga não
 sobrescreva outra mais recente. Alterar o texto invalida gerações ainda não enviadas.
+
+
+## Atendimento unificado (0.4)
+
+Todos os métodos requerem `session.hello` autenticado.
+
+- `automation.get` → configuração de atendimento atual.
+- `automation.preview` (configuração completa ou JSON legado BotChat) → configuração
+  normalizada e validada, sem gravar. A falta de `mode` no legado significa `menu`.
+- `automation.save` (configuração completa) → configuração validada e gravada
+  atomicamente. Cancela respostas pendentes; preserva pausas e atendimento humano.
+- `broadcast.send` `{numeros: string, mensagem: string, consentimento: boolean}` →
+  `{enviados: number, falhas: [{numero, erro}]}`. Valida toda a lista antes de enviar,
+  aceita até 30 números, deduplica números normalizados e adiciona DDI 55 a números
+  brasileiros com 10/11 dígitos. Usa intervalo de 2s entre contatos. O cliente
+  deve usar timeout de 180s e impedir reenvio enquanto aguarda a conclusão.
+
+Schema de configuração: `AutomationConfig` em `bridge/src/automation/service.ts`
+e seu espelho em `ZapIA/ZapIA/Models/Automation.swift`. Modos: `ai`, `menu`, `hybrid`.
+As mensagens programadas passam pelo mesmo pipeline, seleção, kill switch,
+registro SQLite e envio das respostas de IA; não usam o filtro de estilo da IA.

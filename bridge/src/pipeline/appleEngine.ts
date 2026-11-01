@@ -20,7 +20,7 @@ export class AppleReplyEngine implements ReplyEngine {
   private lastError: string | null = null;
   private helperPath: string;
 
-  constructor(helperPath = process.env.IAZAP_APPLE_HELPER ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../bin/iazap-apple-engine")) {
+  constructor(helperPath = process.env.ZAPIA_APPLE_HELPER ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../bin/zapia-apple-engine")) {
     this.helperPath = helperPath;
   }
 

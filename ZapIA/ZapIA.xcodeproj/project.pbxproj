@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A30000000000000000000101 /* IAZAPApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000101 /* IAZAPApp.swift */; };
+		A30000000000000000000101 /* ZapIAApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000101 /* ZapIAApp.swift */; };
 		A30000000000000000000102 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000102 /* ContentView.swift */; };
 		A30000000000000000000201 /* BridgeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000201 /* BridgeClient.swift */; };
 		A30000000000000000000202 /* BridgeProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000202 /* BridgeProtocol.swift */; };
@@ -21,12 +21,14 @@
 		A30000000000000000000504 /* StatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000504 /* StatusView.swift */; };
 		A30000000000000000000505 /* QRCodeImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000505 /* QRCodeImage.swift */; };
 		A30000000000000000000601 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000601 /* Assets.xcassets */; };
+		A30000000000000000000507 /* AutomationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000507; };
+		A30000000000000000000508 /* Automation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000508; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A20000000000000000000101 /* IAZAPApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IAZAPApp.swift; sourceTree = "<group>"; };
+		A20000000000000000000101 /* ZapIAApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZapIAApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000102 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		A20000000000000000000103 /* IAZAP.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IAZAP.entitlements; sourceTree = "<group>"; };
+		A20000000000000000000103 /* ZapIA.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ZapIA.entitlements; sourceTree = "<group>"; };
 		A20000000000000000000201 /* BridgeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeClient.swift; sourceTree = "<group>"; };
 		A20000000000000000000202 /* BridgeProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeProtocol.swift; sourceTree = "<group>"; };
 		A20000000000000000000203 /* NWUnixConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NWUnixConnection.swift; sourceTree = "<group>"; };
@@ -39,7 +41,9 @@
 		A20000000000000000000504 /* StatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusView.swift; sourceTree = "<group>"; };
 		A20000000000000000000505 /* QRCodeImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeImage.swift; sourceTree = "<group>"; };
 		A20000000000000000000601 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A10000000000000000000006 /* IAZAP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IAZAP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000006 /* ZapIA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZapIA.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000507 /* AutomationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationView.swift; sourceTree = "<group>"; };
+		A20000000000000000000508 /* Automation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Automation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,7 +60,7 @@
 		A10000000000000000000010 = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000012 /* IAZAP */,
+				A10000000000000000000012 /* ZapIA */,
 				A10000000000000000000011 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -64,24 +68,24 @@
 		A10000000000000000000011 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000006 /* IAZAP.app */,
+				A10000000000000000000006 /* ZapIA.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A10000000000000000000012 /* IAZAP */ = {
+		A10000000000000000000012 /* ZapIA */ = {
 			isa = PBXGroup;
 			children = (
-				A20000000000000000000101 /* IAZAPApp.swift */,
+				A20000000000000000000101 /* ZapIAApp.swift */,
 				A20000000000000000000102 /* ContentView.swift */,
-				A20000000000000000000103 /* IAZAP.entitlements */,
+				A20000000000000000000103 /* ZapIA.entitlements */,
 				A20000000000000000000601 /* Assets.xcassets */,
 				A10000000000000000000013 /* Bridge */,
 				A10000000000000000000014 /* Models */,
 				A10000000000000000000015 /* Store */,
 				A10000000000000000000016 /* Views */,
 			);
-			path = IAZAP;
+			path = ZapIA;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000013 /* Bridge */ = {
@@ -99,6 +103,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000301 /* Models.swift */,
+				A20000000000000000000508 /* Automation.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -115,6 +120,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000501 /* ChatListView.swift */,
+				A20000000000000000000507 /* AutomationView.swift */,
 				A20000000000000000000502 /* OnboardingView.swift */,
 				A20000000000000000000505 /* QRCodeImage.swift */,
 				A20000000000000000000503 /* SettingsView.swift */,
@@ -127,9 +133,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A10000000000000000000002 /* IAZAP */ = {
+		A10000000000000000000002 /* ZapIA */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A10000000000000000000025 /* Build configuration list for PBXNativeTarget "IAZAP" */;
+			buildConfigurationList = A10000000000000000000025 /* Build configuration list for PBXNativeTarget "ZapIA" */;
 			buildPhases = (
 				A10000000000000000000007 /* Embed Bridge Path */,
 				A10000000000000000000003 /* Sources */,
@@ -140,9 +146,9 @@
 			);
 			dependencies = (
 			);
-			name = IAZAP;
-			productName = IAZAP;
-			productReference = A10000000000000000000006 /* IAZAP.app */;
+			name = ZapIA;
+			productName = ZapIA;
+			productReference = A10000000000000000000006 /* ZapIA.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -160,7 +166,7 @@
 					};
 				};
 			};
-			buildConfigurationList = A10000000000000000000024 /* Build configuration list for PBXProject "IAZAP" */;
+			buildConfigurationList = A10000000000000000000024 /* Build configuration list for PBXProject "ZapIA" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -174,7 +180,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A10000000000000000000002 /* IAZAP */,
+				A10000000000000000000002 /* ZapIA */,
 			);
 		};
 /* End PBXProject section */
@@ -209,7 +215,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nBRIDGE_DIR=\"${SRCROOT}/../bridge\"\nRESOURCES=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"${RESOURCES}\"\nif [ -f \"${BRIDGE_DIR}/package.json\" ]; then\n  /bin/echo -n \"${BRIDGE_DIR}\" > \"${RESOURCES}/bridge-root.txt\"\n  echo \"[IAZAP] bridge-root.txt -> ${BRIDGE_DIR}\"\nelse\n  echo \"warning: bridge not found at ${BRIDGE_DIR} \u2014 set IAZAP_BRIDGE_DIR at runtime\"\n  /bin/echo -n \"\" > \"${RESOURCES}/bridge-root.txt\"\nfi\n\"${SRCROOT}/../scripts/build-apple-helper.sh\" \"${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Helpers/iazap-apple-engine\"\n";
+			shellScript = "set -e\nBRIDGE_DIR=\"${SRCROOT}/../bridge\"\nRESOURCES=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nmkdir -p \"${RESOURCES}\"\nif [ -f \"${BRIDGE_DIR}/package.json\" ]; then\n  /bin/echo -n \"${BRIDGE_DIR}\" > \"${RESOURCES}/bridge-root.txt\"\n  echo \"[ZapIA] bridge-root.txt -> ${BRIDGE_DIR}\"\nelse\n  echo \"warning: bridge not found at ${BRIDGE_DIR} \u2014 set ZAPIA_BRIDGE_DIR at runtime\"\n  /bin/echo -n \"\" > \"${RESOURCES}/bridge-root.txt\"\nfi\n\"${SRCROOT}/../scripts/build-apple-helper.sh\" \"${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Helpers/zapia-apple-engine\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -218,7 +224,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A30000000000000000000101 /* IAZAPApp.swift in Sources */,
+				A30000000000000000000101 /* ZapIAApp.swift in Sources */,
 				A30000000000000000000102 /* ContentView.swift in Sources */,
 				A30000000000000000000201 /* BridgeClient.swift in Sources */,
 				A30000000000000000000202 /* BridgeProtocol.swift in Sources */,
@@ -227,6 +233,8 @@
 				A30000000000000000000301 /* Models.swift in Sources */,
 				A30000000000000000000401 /* AppStore.swift in Sources */,
 				A30000000000000000000501 /* ChatListView.swift in Sources */,
+				A30000000000000000000508 /* Automation.swift in Sources */,
+				A30000000000000000000507 /* AutomationView.swift in Sources */,
 				A30000000000000000000502 /* OnboardingView.swift in Sources */,
 				A30000000000000000000505 /* QRCodeImage.swift in Sources */,
 				A30000000000000000000503 /* SettingsView.swift in Sources */,
@@ -273,21 +281,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = IAZAP/IAZAP.entitlements;
+				CODE_SIGN_ENTITLEMENTS = ZapIA/ZapIA.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = IAZAP;
+				INFOPLIST_KEY_CFBundleDisplayName = ZapIA;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.2.4;
-				PRODUCT_BUNDLE_IDENTIFIER = app.iazap.macos;
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.zapia.macos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -298,21 +306,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = IAZAP/IAZAP.entitlements;
+				CODE_SIGN_ENTITLEMENTS = ZapIA/ZapIA.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = IAZAP;
+				INFOPLIST_KEY_CFBundleDisplayName = ZapIA;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.2.4;
-				PRODUCT_BUNDLE_IDENTIFIER = app.iazap.macos;
+				MARKETING_VERSION = 0.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.zapia.macos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -322,7 +330,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A10000000000000000000024 /* Build configuration list for PBXProject "IAZAP" */ = {
+		A10000000000000000000024 /* Build configuration list for PBXProject "ZapIA" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A10000000000000000000020 /* Debug */,
@@ -331,7 +339,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A10000000000000000000025 /* Build configuration list for PBXNativeTarget "IAZAP" */ = {
+		A10000000000000000000025 /* Build configuration list for PBXNativeTarget "ZapIA" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A10000000000000000000022 /* Debug */,

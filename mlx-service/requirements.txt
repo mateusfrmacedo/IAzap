@@ -3,7 +3,7 @@
 #   pip install -r requirements.txt
 #
 # On Linux / CI without Metal these imports fail — the server still starts in
-# "unavailable" mode (or mock mode with IAZAP_MLX_MOCK=1).
+# "unavailable" mode (or mock mode with ZAPIA_MLX_MOCK=1).
 
 mlx>=0.22.0; platform_system == "Darwin" and platform_machine == "arm64"
 mlx-lm>=0.21.0; platform_system == "Darwin" and platform_machine == "arm64"

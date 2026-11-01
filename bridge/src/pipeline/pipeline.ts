@@ -25,6 +25,8 @@ import {
 export type SendTextFn = (chatId: string, text: string) => Promise<{ messageId: string }>;
 
 export type PipelineDeps = {
+  routeReply?: (msg: InboundMessage) => string | null | undefined;
+  onManualMessage?: (msg: InboundMessage) => void;
   store: MessageStore;
   engine: ReplyEngine;
   sendText: SendTextFn;
@@ -46,6 +48,8 @@ export type PipelineOptions = {
 };
 
 export class MessagePipeline extends EventEmitter {
+  private routeReply?: PipelineDeps["routeReply"];
+  private onManualMessage?: PipelineDeps["onManualMessage"];
   private store: MessageStore;
   private engine: ReplyEngine;
   private sendText: SendTextFn;
@@ -75,6 +79,8 @@ export class MessagePipeline extends EventEmitter {
 
   constructor(deps: PipelineDeps, opts: PipelineOptions = {}) {
     super();
+    this.routeReply = deps.routeReply;
+    this.onManualMessage = deps.onManualMessage;
     this.store = deps.store;
     this.engine = deps.engine;
     this.sendText = deps.sendText;
@@ -187,6 +193,10 @@ export class MessagePipeline extends EventEmitter {
     });
 
     if (msg.fromMe) {
+      if (!this.sendingChats.has(msg.chatId)) {
+        this.cancelChat(msg.chatId);
+        this.onManualMessage?.(msg);
+      }
       this.pushActivity({
         kind: "skipped_from_me",
         chatId: msg.chatId,
@@ -229,6 +239,16 @@ export class MessagePipeline extends EventEmitter {
     }
 
     this.scheduleReply(msg);
+  }
+
+  cancelPending(): void { this.clearDebounces(); }
+
+  cancelChat(chatId: string): void {
+    this.chatGenerations.delete(chatId);
+    const timer = this.debounceTimers.get(chatId);
+    if (timer) clearTimeout(timer);
+    this.debounceTimers.delete(chatId);
+    this.pendingLatest.delete(chatId);
   }
 
   /** Record an outbound message we just sent (context + anti-echo). */
@@ -326,7 +346,9 @@ export class MessagePipeline extends EventEmitter {
 
       const recent = this.store.recent(msg.chatId, this.contextSize);
       const contextString = this.store.buildContextString(msg.chatId, this.contextSize);
-      const reply = (
+      const routed = this.routeReply?.(msg);
+      if (routed === null) return;
+      const reply = (routed ??
         await this.engine.generate({
           chatId: msg.chatId,
           systemPrompt: this.systemPrompt,

@@ -1,10 +1,63 @@
-# IAZAP
+# ZapIA
 
 App nativo **macOS** (Apple Silicon) que conecta sua conta WhatsApp pessoal via WhatsApp Web (Baileys), deixa você escolher em quais chats ativar auto-reply, e gera respostas **locais** em português com **Qwen/MLX** (Qwen2.5 4-bit) ou **Apple Intelligence** (Foundation Models).
 
 > **Aviso:** o bridge usa cliente WhatsApp Web não oficial. Isso pode violar os Termos do WhatsApp/Meta e há risco de banimento da conta. Uso sob sua responsabilidade. Sem afiliação com Meta/WhatsApp. Inferência **não** usa APIs de LLM na nuvem.
 
-## Começar em 3 passos (QR no app)
+## ZapIA 0.4 — união dos projetos
+
+O **ZapIA** reúne o app de IA local e os recursos de atendimento do antigo
+**BotChat** em um único aplicativo nativo para **macOS**. Os históricos Git dos
+dois projetos foram preservados. Repositório oficial:
+[github.com/mateusfrmacedo/ZapIA](https://github.com/mateusfrmacedo/ZapIA).
+
+Na seção **Atendimento**, escolha e salve um dos modos:
+
+| Modo | Comportamento |
+|---|---|
+| Inteligência artificial | Respostas locais com Apple Intelligence ou Qwen/MLX |
+| Menu programado | Saudação, avisos, respostas numeradas e submenus, sem usar IA |
+| Menu + IA | Menu na primeira interação; IA para texto livre depois da saudação; `menu` ou `voltar` reabre as opções |
+
+A tela permite cadastrar, editar, ativar e excluir respostas, sub-respostas e
+atendentes; definir expediente por dia (incluindo virada da meia-noite), saudação
+com `{saudacao}` e `{nome}`, aviso global e comunicados para até 30 contatos.
+**Salvar atendimento** aplica as alterações. O expediente e a saudação se aplicam
+aos modos de menu; as pausas de atendimento humano valem para todos os modos.
+
+Todos os modos respeitam o **auto-reply global** e a seleção de **Chats**. Para
+responder a alguém, selecione a conversa e ative o controle global. Mensagens de
+sincronização anteriores à abertura do bridge não recebem resposta automática.
+
+Ao selecionar atendimento humano, a conversa pausa até uma mensagem sua com
+`!encerrar` no próprio WhatsApp. Uma mensagem manual sua pausa menus e IA por
+30 minutos sem interação; novas mensagens do contato renovam o prazo. Essas
+pausas sobrevivem ao reinício do app e a alterações de configuração.
+Os comunicados exigem autorização dos contatos, mostram uma confirmação com o
+texto e os destinatários, retornam falhas por número e pausam as respostas
+automáticas dos destinatários. Eles não exigem selecionar os contatos em Chats.
+
+### Migrar as instalações anteriores
+
+- O nome do app, projeto Xcode, esquema, executável, pacote e instaladores agora é
+  **ZapIA**. A configuração documentada usa o prefixo `ZAPIA_`.
+- Preferências, histórico e pareamento da instalação anterior de IA são copiados
+  para o novo nome no primeiro uso, preservando os arquivos originais. Feche o app
+  antigo antes de abrir o ZapIA. Variáveis `IAZAP_*` antigas continuam aceitas para
+  compatibilidade; as novas têm prioridade.
+- Para trazer o atendimento do BotChat, abra **Atendimento → Importar do BotChat…**
+  e selecione o `config.json` da instalação anterior (normalmente em
+  `~/Library/Application Support/BotChat/`). Revise o resultado e clique em
+  **Salvar atendimento**. O formato antigo `respostas.json` também é aceito.
+  A importação substitui a configuração de atendimento atual apenas ao salvar.
+- A sessão Chromium do BotChat não é compatível com Baileys: pareie novamente pelo
+  QR do ZapIA. Os arquivos e a sessão antigos do BotChat permanecem intactos.
+- Os dados novos ficam em `~/Library/Application Support/ZapIA/`: `data/atendimento.json`,
+  `data/atendimento-state.json`, `data/messages.sqlite` e `baileys-auth/`.
+- Esta unificação está focada no Mac. Os instaladores históricos Windows do BotChat
+  continuam no repositório antigo; não são uma versão Windows do ZapIA.
+
+## Começar (QR no app)
 
 No Mac (Apple Silicon), a partir da raiz do repo:
 
@@ -17,14 +70,14 @@ Ou só Xcode:
 
 ```bash
 cd bridge && npm install && cd ..
-open IAZAP/IAZAP.xcodeproj
+open ZapIA/ZapIA.xcodeproj
 ```
 
-1. Scheme **IAZAP** → destino **My Mac** → **Run** (▶).
+1. Scheme **ZapIA** → destino **My Mac** → **Run** (▶).
 2. Em **Parear**: aceite o aviso de risco ToS.
-3. O app **inicia o bridge Node sozinho** (sem Terminal separado), escuta `$TMPDIR/iazap-bridge.sock` com `IAZAP_TOKEN=dev-token-change-me`, e mostra o **QR grande** assim que o Baileys emitir `qr.update`.
+3. O app **inicia o bridge Node sozinho** (sem Terminal separado), escuta `$TMPDIR/zapia-bridge.sock` com `ZAPIA_TOKEN=dev-token-change-me`, e mostra o **QR grande** assim que o Baileys emitir `qr.update`.
 4. No telefone: WhatsApp → Aparelhos conectados → Conectar um aparelho → escaneie.
-5. Status vira **Conectado**; o QR some (mesmo contrato visual do BotChat).
+5. Status vira **Conectado**; o QR desaparece.
 
 Não precisa abrir outro Terminal para o bridge. Se o bridge já estiver rodando (`npm run serve`), o app só conecta no socket.
 
@@ -34,12 +87,12 @@ Para gerar um `.dmg` (arrastar para Aplicativos) e um `.zip`:
 
 ```bash
 ./scripts/package-mac.sh
-# Saída: dist-mac/IAZAP-apple-silicon.dmg e .zip
+# Saída: dist-mac/ZapIA-apple-silicon.dmg e .zip
 ```
 
 O pacote inclui Node e o bridge compilado com dependências de produção. O usuário
 não precisa de Xcode, Node, npm ou do checkout para parear o WhatsApp. O bridge
-usa os recursos do próprio app e grava seus logs em `IAZAP_DATA/bridge.log`.
+usa os recursos do próprio app e grava seus logs em `ZAPIA_DATA/bridge.log`.
 Requer macOS 14+ e Apple Silicon.
 
 Esta versão de teste usa assinatura ad-hoc. Distribuição pública sem alertas do
@@ -75,7 +128,7 @@ para a próxima abertura. A troca cancela respostas antigas ainda em geração.
 
 - **Apple Intelligence**: requer macOS 26+, Mac compatível e Apple Intelligence
   ativada/preparada nos Ajustes do Sistema. Usa Foundation Models no dispositivo,
-  sem Python ou download de pesos pelo IAZAP. Indisponibilidade e recusas do modelo
+  sem Python ou download de pesos pelo ZapIA. Indisponibilidade e recusas do modelo
   aparecem como erro; não há troca silenciosa para outro motor.
 - **Qwen / MLX**: continua usando o serviço Python e os pesos configurados localmente.
   O modelo é carregado sob demanda, ou pelo botão **Carregar modelo**.
@@ -91,7 +144,7 @@ Teste real dos dois motores, com WhatsApp sempre simulado (requer MLX e Apple pr
 ./scripts/build-apple-helper.sh
 node scripts/smoke-engines.mjs
 # Verifica também a preferência Apple no bootstrap nativo:
-IAZAP_TEST_APPLE=1 ./scripts/smoke-package.sh
+ZAPIA_TEST_APPLE=1 ./scripts/smoke-package.sh
 ```
 
 ## Prompt e recuperação de conexão
@@ -116,11 +169,11 @@ O Mac precisa estar acordado e com internet para receber/enviar mensagens.
 Teste de queda do processo, sem usar WhatsApp real:
 
 ```bash
-IAZAP_TEST_RECOVERY=1 ./scripts/smoke-bootstrap.sh
+ZAPIA_TEST_RECOVERY=1 ./scripts/smoke-bootstrap.sh
 # Simula um processo travado, sem usar WhatsApp real:
-IAZAP_TEST_HANG=1 ./scripts/smoke-bootstrap.sh
+ZAPIA_TEST_HANG=1 ./scripts/smoke-bootstrap.sh
 # Ou com o pacote e preferência Apple:
-IAZAP_TEST_RECOVERY=1 IAZAP_TEST_APPLE=1 ./scripts/smoke-package.sh
+ZAPIA_TEST_RECOVERY=1 ZAPIA_TEST_APPLE=1 ./scripts/smoke-package.sh
 ```
 
 ## Mensagem única, ícone e estilo de conversa (0.2.2)
@@ -196,7 +249,7 @@ Arquitetura: **SwiftUI + sidecar Node/Baileys (filho do app) + pipeline local + 
 ## Layout do repositório
 
 ```
-IAZAP/                 # App SwiftUI (Xcode)
+ZapIA/                 # App SwiftUI (Xcode)
 bridge/                # Sidecar Node + Baileys + pipeline + MLX client
 mlx-service/           # Helper HTTP local (mlx-lm) — Apple Silicon
 protocol/              # JSON-RPC docs + types (TS; espelhado em Swift)
@@ -232,7 +285,7 @@ cd mlx-service
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-IAZAP_MLX_AUTOLOAD=1 python server.py
+ZAPIA_MLX_AUTOLOAD=1 python server.py
 # http://127.0.0.1:8742
 ```
 
@@ -243,29 +296,29 @@ Detalhes: [`mlx-service/README.md`](mlx-service/README.md).
 ```bash
 cd bridge
 npm install
-IAZAP_TOKEN=dev-token-change-me npm run serve   # estável (sem watch)
+ZAPIA_TOKEN=dev-token-change-me npm run serve   # estável (sem watch)
 # ou: npm run dev   # tsx watch
 ```
 
 | Env | Default |
 |---|---|
-| `IAZAP_SOCKET` | `$TMPDIR/iazap-bridge.sock` |
-| `IAZAP_TOKEN` | `dev-token-change-me` |
-| `IAZAP_AUTH` | `~/Library/Application Support/IAZAP/baileys-auth` |
-| `IAZAP_DATA` | `~/Library/Application Support/IAZAP/data` |
-| `IAZAP_BRIDGE_DIR` | resolvido pelo app (scheme / `bridge-root.txt` / pasta do repo) |
-| `IAZAP_STUB_WA` | unset |
-| `IAZAP_ENGINE` | `auto` (`mlx` \| `stub` \| `auto`) |
-| `IAZAP_MLX_URL` | `http://127.0.0.1:8742` |
-| `IAZAP_MLX_MODEL` | `qwen2.5-7b-instruct-4bit` |
+| `ZAPIA_SOCKET` | `$TMPDIR/zapia-bridge.sock` |
+| `ZAPIA_TOKEN` | `dev-token-change-me` |
+| `ZAPIA_AUTH` | `~/Library/Application Support/ZapIA/baileys-auth` |
+| `ZAPIA_DATA` | `~/Library/Application Support/ZapIA/data` |
+| `ZAPIA_BRIDGE_DIR` | resolvido pelo app (scheme / `bridge-root.txt` / pasta do repo) |
+| `ZAPIA_STUB_WA` | unset |
+| `ZAPIA_ENGINE` | `auto` (`mlx` \| `stub` \| `auto`) |
+| `ZAPIA_MLX_URL` | `http://127.0.0.1:8742` |
+| `ZAPIA_MLX_MODEL` | `qwen2.5-7b-instruct-4bit` |
 
-**Logout** (`session.logout` / UI) apaga só `IAZAP_AUTH`. Contexto SQLite fica em `IAZAP_DATA`.
+**Logout** (`session.logout` / UI) apaga só `ZAPIA_AUTH`. Contexto SQLite fica em `ZAPIA_DATA`.
 
 ## Stub vs MLX
 
 | | Stub | MLX |
 |---|---|---|
-| Quando | `IAZAP_ENGINE=stub`, ou `auto` sem mlx-service | mlx-service up no Mac (Metal) |
+| Quando | `ZAPIA_ENGINE=stub`, ou `auto` sem mlx-service | mlx-service up no Mac (Metal) |
 | `engineId` | `stub` | `mlx:qwen2.5-…` |
 | Qualidade | Placeholder PT-BR | Qwen2.5 instruct local |
 
@@ -273,9 +326,9 @@ IAZAP_TOKEN=dev-token-change-me npm run serve   # estável (sem watch)
 
 JSON-RPC 2.0, newline-delimited, Unix socket. Notificação `qr.update` alimenta o QR na tela Parear. Ver [`protocol/PROTOCOL.md`](protocol/PROTOCOL.md).
 
-## Pareamento (inspirado no BotChat)
+## Conexão única
 
-Mantemos **Baileys** (não whatsapp-web.js/Chromium). A UX copia o contrato do BotChat: estado de conexão + linha de detalhe + **uma imagem QR grande** (some quando `null` / conectado). O app gerencia o processo do bridge como filho.
+O ZapIA usa **Baileys** para todos os recursos. O app gerencia o bridge como processo filho e mostra uma imagem QR grande até concluir o pareamento. Não execute uma instalação antiga em paralelo com a mesma sessão.
 
 ## Licença / uso
 

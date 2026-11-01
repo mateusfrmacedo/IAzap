@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# IAZAP — one-command Mac run (install bridge deps, open Xcode / build+launch).
+# ZapIA — one-command Mac run (install bridge deps, open Xcode / build+launch).
 # Usage: ./scripts/run-mac.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BRIDGE="$ROOT/bridge"
-XCODEPROJ="$ROOT/IAZAP/IAZAP.xcodeproj"
-export IAZAP_BRIDGE_DIR="$BRIDGE"
-export IAZAP_TOKEN="${IAZAP_TOKEN:-dev-token-change-me}"
+XCODEPROJ="$ROOT/ZapIA/ZapIA.xcodeproj"
+export ZAPIA_BRIDGE_DIR="$BRIDGE"
+export ZAPIA_TOKEN="${ZAPIA_TOKEN:-${IAZAP_TOKEN:-dev-token-change-me}}"
 
-echo "==> IAZAP repo: $ROOT"
-echo "==> Bridge:    $IAZAP_BRIDGE_DIR"
+echo "==> ZapIA repo: $ROOT"
+echo "==> Bridge:    $ZAPIA_BRIDGE_DIR"
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   echo "Erro: Node.js/npm não encontrado. Instale Node 22+ (https://nodejs.org)." >&2
@@ -37,7 +37,7 @@ fi
 if ! command -v xcodebuild >/dev/null 2>&1; then
   echo "==> xcodebuild não encontrado — abrindo Xcode."
   open "$XCODEPROJ"
-  echo "No Xcode: scheme IAZAP → My Mac → Run."
+  echo "No Xcode: scheme ZapIA → My Mac → Run."
   echo "O app inicia o bridge sozinho; escaneie o QR em Parear."
   exit 0
 fi
@@ -46,15 +46,15 @@ DERIVED="$ROOT/.derivedData"
 echo "==> xcodebuild (Debug, My Mac)"
 xcodebuild \
   -project "$XCODEPROJ" \
-  -scheme IAZAP \
+  -scheme ZapIA \
   -configuration Debug \
   -derivedDataPath "$DERIVED" \
   -destination 'platform=macOS' \
   build
 
-APP="$(find "$DERIVED/Build/Products/Debug" -maxdepth 1 -name 'IAZAP.app' -print -quit)"
+APP="$(find "$DERIVED/Build/Products/Debug" -maxdepth 1 -name 'ZapIA.app' -print -quit)"
 if [ -z "$APP" ] || [ ! -d "$APP" ]; then
-  echo "Build ok, mas IAZAP.app não encontrado — abrindo Xcode." >&2
+  echo "Build ok, mas ZapIA.app não encontrado — abrindo Xcode." >&2
   open "$XCODEPROJ"
   exit 1
 fi
@@ -65,7 +65,7 @@ mkdir -p "$RESOURCES"
 printf '%s' "$BRIDGE" > "$RESOURCES/bridge-root.txt"
 
 echo "==> Launch $APP"
-# Launch binary directly so IAZAP_* env vars are inherited (open(1) does not forward them).
-"$APP/Contents/MacOS/IAZAP" &
-echo "IAZAP iniciado (pid $!)."
+# Launch binary directly so ZAPIA_* env vars are inherited (open(1) does not forward them).
+"$APP/Contents/MacOS/ZapIA" &
+echo "ZapIA iniciado (pid $!)."
 echo "Fluxo: aceite o aviso ToS em Parear → QR grande aparece → escaneie no WhatsApp."

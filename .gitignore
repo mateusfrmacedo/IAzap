@@ -52,8 +52,8 @@ bridge/yarn-error.log*
 bridge/.npm
 *.tsbuildinfo
 
-# IAZAP local runtime
-.iazap/
+# ZapIA local runtime
+.zapia/
 **/baileys-auth/
 *.sock
 

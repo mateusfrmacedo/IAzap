@@ -1,20 +1,23 @@
 /**
- * IAZAP WhatsApp bridge entrypoint (Phase 4 — MLX + pipeline).
+ * ZapIA WhatsApp bridge entrypoint (Phase 4 — MLX + pipeline).
  *
  * Env:
- *   IAZAP_SOCKET  — Unix socket path (default: $TMPDIR/iazap-bridge.sock)
- *   IAZAP_TOKEN   — session token required by session.hello
- *   IAZAP_AUTH    — Baileys multi-file auth directory
- *                   (default: ~/Library/Application Support/IAZAP/baileys-auth on macOS)
- *   IAZAP_DATA    — SQLite + pipeline data dir
- *                   (default: ~/Library/Application Support/IAZAP/data on macOS)
- *   IAZAP_STUB_WA — if "1", skip real Baileys connect (UI/IPC smoke only)
- *   IAZAP_ENGINE  — auto | mlx | stub (default auto: MLX if mlx-service up)
- *   IAZAP_MLX_URL — mlx-service base URL (default http://127.0.0.1:8742)
- *   IAZAP_MLX_MODEL — preferred catalog model id
+ *   ZAPIA_SOCKET  — Unix socket path (default: $TMPDIR/zapia-bridge.sock)
+ *   ZAPIA_TOKEN   — session token required by session.hello
+ *   ZAPIA_AUTH    — Baileys multi-file auth directory
+ *                   (default: ~/Library/Application Support/ZapIA/baileys-auth on macOS)
+ *   ZAPIA_DATA    — SQLite + pipeline data dir
+ *                   (default: ~/Library/Application Support/ZapIA/data on macOS)
+ *   ZAPIA_STUB_WA — if "1", skip real Baileys connect (UI/IPC smoke only)
+ *   ZAPIA_ENGINE  — auto | mlx | stub (default auto: MLX if mlx-service up)
+ *   ZAPIA_MLX_URL — mlx-service base URL (default http://127.0.0.1:8742)
+ *   ZAPIA_MLX_MODEL — preferred catalog model id
  */
 
+import { migrateLegacyData } from "./compatibility.js";
 import os from "node:os";
+import { randomUUID } from "node:crypto";
+import { AutomationService, broadcastRecipients, parseAutomationConfig } from "./automation/service.js";
 import path from "node:path";
 import fs from "node:fs";
 import { RpcServer } from "./rpc/server.js";
@@ -33,11 +36,11 @@ function defaultAuthDir(): string {
       os.homedir(),
       "Library",
       "Application Support",
-      "IAZAP",
+      "ZapIA",
       "baileys-auth",
     );
   }
-  return path.join(os.homedir(), ".iazap", "baileys-auth");
+  return path.join(os.homedir(), ".zapia", "baileys-auth");
 }
 
 function defaultDataDir(): string {
@@ -46,19 +49,21 @@ function defaultDataDir(): string {
       os.homedir(),
       "Library",
       "Application Support",
-      "IAZAP",
+      "ZapIA",
       "data",
     );
   }
-  return path.join(os.homedir(), ".iazap", "data");
+  return path.join(os.homedir(), ".zapia", "data");
 }
 
+migrateLegacyData();
+
 const socketPath =
-  process.env.IAZAP_SOCKET ?? path.join(os.tmpdir(), "iazap-bridge.sock");
-const token = process.env.IAZAP_TOKEN ?? "dev-token-change-me";
-const authDir = process.env.IAZAP_AUTH ?? defaultAuthDir();
-const dataDir = process.env.IAZAP_DATA ?? defaultDataDir();
-const stubWa = process.env.IAZAP_STUB_WA === "1";
+  process.env.ZAPIA_SOCKET ?? path.join(os.tmpdir(), "zapia-bridge.sock");
+const token = process.env.ZAPIA_TOKEN ?? "dev-token-change-me";
+const authDir = process.env.ZAPIA_AUTH ?? defaultAuthDir();
+const dataDir = process.env.ZAPIA_DATA ?? defaultDataDir();
+const stubWa = process.env.ZAPIA_STUB_WA === "1";
 
 fs.mkdirSync(authDir, { recursive: true });
 fs.mkdirSync(dataDir, { recursive: true });
@@ -67,7 +72,7 @@ let session: WhatsAppSession | null = null;
 let stubStatus: SessionStatus = {
   state: "disconnected",
   me: null,
-  lastError: stubWa ? "Stub mode (IAZAP_STUB_WA=1)" : null,
+  lastError: stubWa ? "Stub mode (ZAPIA_STUB_WA=1)" : null,
 };
 const stubAutoReply = new Map<string, boolean>();
 const stubChats: Chat[] = [
@@ -100,7 +105,7 @@ const stubChats: Chat[] = [
 const messageStore = new MessageStore(path.join(dataDir, "messages.sqlite"));
 const replyEngine = new SelectableReplyEngine({
   mode: resolveEngineMode(),
-  modelId: process.env.IAZAP_MLX_MODEL || defaultModelId(),
+  modelId: process.env.ZAPIA_MLX_MODEL || defaultModelId(),
 });
 
 function getStatus(): SessionStatus {
@@ -156,8 +161,12 @@ async function sendMessage(chatId: string, text: string): Promise<{ messageId: s
   throw err;
 }
 
+const automation = new AutomationService(path.join(dataDir, "atendimento.json"));
+
 const pipeline = new MessagePipeline(
   {
+    routeReply: (msg) => automation.reply(msg, listChats().find(c=>c.id===msg.chatId)?.name ?? ""),
+    onManualMessage: (msg) => automation.manual(msg),
     store: messageStore,
     engine: replyEngine,
     sendText: sendMessage,
@@ -191,13 +200,43 @@ const rpc = new RpcServer(token, {
     rpc.notify("pipeline.status", pipeline.getStatus());
     return result;
   },
-  sendMessage: async ({ chatId, text }) => sendMessage(chatId, text),
+  automationPreview: (value) => parseAutomationConfig(value),
+  automationGet: () => automation.getConfig(),
+  automationSave: (value) => {
+    const config = automation.save(value);
+    pipeline.cancelPending();
+    return config;
+  },
+  broadcastSend: async ({ numeros, mensagem, consentimento }) => {
+    if (consentimento !== true) throw Error("Confirme a autorização dos contatos.");
+    if (getStatus().state !== "connected") throw Error("Conecte o WhatsApp antes de enviar.");
+    const recipients = broadcastRecipients(numeros);
+    if (!mensagem.trim()) throw Error("Digite a mensagem.");
+    const failures: {numero: string; erro: string}[] = [];
+    let enviados = 0;
+    for (const chatId of recipients) {
+      try {
+        automation.pause(chatId); pipeline.cancelChat(chatId);
+        const result = await sendMessage(chatId, mensagem.trim());
+        pipeline.recordOutbound(chatId, result.messageId, mensagem.trim());
+        enviados++;
+      } catch (err) { failures.push({numero: chatId.split('@')[0], erro: String(err)}); }
+      if (enviados+failures.length < recipients.length) await new Promise(resolve=>setTimeout(resolve, 2000));
+    }
+    return { enviados, falhas: failures };
+  },
+  sendMessage: async ({ chatId, text }) => {
+    automation.pause(chatId); pipeline.cancelChat(chatId);
+    const result = await sendMessage(chatId, text);
+    pipeline.recordOutbound(chatId, result.messageId, text);
+    return result;
+  },
   reconnect: async () => {
     if (stubWa) {
       stubStatus = { state: "qr", me: null, lastError: null };
       rpc.notify("session.status", stubStatus);
       rpc.notify("qr.update", {
-        qr: "IAZAP-STUB-QR-PLACEHOLDER-scan-disabled-in-stub-mode",
+        qr: "ZapIA-STUB-QR-PLACEHOLDER-scan-disabled-in-stub-mode",
       });
       return stubStatus;
     }
@@ -232,7 +271,7 @@ const rpc = new RpcServer(token, {
   },
   pipelineGetActivity: (limit) => ({ activities: pipeline.getActivity(limit) }),
   pipelineSimulateInbound: async ({ chatId, text, fromMe, isGroup }) => {
-    const messageId = `sim-${Date.now()}`;
+    const messageId = `sim-${randomUUID()}`;
     const inbound: InboundMessage = {
       chatId,
       messageId,
@@ -311,10 +350,10 @@ async function main(): Promise<void> {
   pipeline.setEngine(replyEngine);
 
   await rpc.listen(socketPath);
-  console.error(`[iazap-bridge] listening on ${socketPath}`);
-  console.error(`[iazap-bridge] auth dir ${authDir}`);
+  console.error(`[zapia-bridge] listening on ${socketPath}`);
+  console.error(`[zapia-bridge] auth dir ${authDir}`);
   console.error(
-    `[iazap-bridge] data dir ${dataDir} (engine=${replyEngine.id} backend=${modelStatus.backend} model=${modelStatus.modelId} state=${modelStatus.state})`,
+    `[zapia-bridge] data dir ${dataDir} (engine=${replyEngine.id} backend=${modelStatus.backend} model=${modelStatus.modelId} state=${modelStatus.state})`,
   );
   notifyModelStatus(modelStatus);
 
@@ -328,7 +367,7 @@ async function main(): Promise<void> {
     rpc.notify("qr.update", { qr: null });
     rpc.notify("chats.updated", { chats: listChats() });
     rpc.notify("pipeline.status", pipeline.getStatus());
-    console.error("[iazap-bridge] stub WhatsApp mode — no Baileys socket; pipeline send is local-fake");
+    console.error("[zapia-bridge] stub WhatsApp mode — no Baileys socket; pipeline send is local-fake");
     return;
   }
 
@@ -348,6 +387,6 @@ process.on("SIGINT", () => void shutdown());
 process.on("SIGTERM", () => void shutdown());
 
 main().catch((err) => {
-  console.error("[iazap-bridge] fatal", err);
+  console.error("[zapia-bridge] fatal", err);
   process.exit(1);
 });

@@ -15,7 +15,7 @@ const request: ReplyRequest = {
 };
 
 function helper(t: { after: (fn: () => void) => void }, result?: object, malformed = false) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "iazap-apple-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zapia-apple-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const file = path.join(dir, "helper.cjs");
   fs.writeFileSync(file, `#!${process.execPath}\nlet input='';process.stdin.on('data',s=>input+=s);process.stdin.on('end',()=>{const r=JSON.parse(input);console.log(${malformed ? "'invalid-json'" : result ? JSON.stringify(JSON.stringify(result)) : "JSON.stringify(r.method==='status'?{state:'ready'}:{state:'ready',text:r.systemPrompt+' '+r.turns.at(-1).text})"});});\n`, { mode: 0o700 });
@@ -39,7 +39,7 @@ it("Apple unavailability never falls back to stub or MLX", async (t) => {
 });
 
 it("missing helper and malformed responses surface actionable errors", async (t) => {
-  const missing = new AppleReplyEngine("/nonexistent/iazap-apple-engine");
+  const missing = new AppleReplyEngine("/nonexistent/zapia-apple-engine");
   assert.equal((await missing.refresh()).state, "unavailable");
   await assert.rejects(missing.generate(request), /motor Apple Intelligence/);
   const invalid = new AppleReplyEngine(helper(t, undefined, true));
@@ -80,7 +80,7 @@ it("switches MLX → Apple → MLX without passing Apple IDs to the Python servi
 });
 
 it("retries a generic-only completion automatically, without another incoming message", async (t) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "iazap-style-retry-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zapia-style-retry-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const file = path.join(dir, "helper.cjs");
   const counter = path.join(dir, "calls");

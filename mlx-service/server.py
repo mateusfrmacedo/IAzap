@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IAZAP local MLX inference helper (macOS Apple Silicon).
+ZapIA local MLX inference helper (macOS Apple Silicon).
 
 HTTP (127.0.0.1 only):
   GET  /health
@@ -10,13 +10,13 @@ HTTP (127.0.0.1 only):
   POST /v1/generate    {"systemPrompt", "turns":[{"role","text"}], "maxTokens"?}
 
 Env:
-  IAZAP_MLX_HOST       default 127.0.0.1
-  IAZAP_MLX_PORT       default 8742
-  IAZAP_MLX_MODEL      model id (see catalog.py) or HF repo
-  IAZAP_MLX_CACHE      HF / mlx cache dir (optional)
-  IAZAP_MLX_MOCK       if "1", skip mlx-lm and return deterministic PT-BR replies
+  ZAPIA_MLX_HOST       default 127.0.0.1
+  ZAPIA_MLX_PORT       default 8742
+  ZAPIA_MLX_MODEL      model id (see catalog.py) or HF repo
+  ZAPIA_MLX_CACHE      HF / mlx cache dir (optional)
+  ZAPIA_MLX_MOCK       if "1", skip mlx-lm and return deterministic PT-BR replies
                        (for Linux CI / wiring tests without Metal)
-  IAZAP_MLX_AUTOLOAD   if "1", load weights on startup (Mac only; downloads if needed)
+  ZAPIA_MLX_AUTOLOAD   if "1", load weights on startup (Mac only; downloads if needed)
 
 On Linux / without Metal the server starts with state=unavailable unless MOCK=1.
 """
@@ -35,17 +35,22 @@ from urllib.parse import urlparse
 from catalog import catalog_dicts, default_model_id, get_model
 from prompt import DEFAULT_SYSTEM_PROMPT, build_chatml, mock_portuguese_reply
 
-HOST = os.environ.get("IAZAP_MLX_HOST", "127.0.0.1")
-PORT = int(os.environ.get("IAZAP_MLX_PORT", "8742"))
-MOCK = os.environ.get("IAZAP_MLX_MOCK", "") == "1"
-AUTOLOAD = os.environ.get("IAZAP_MLX_AUTOLOAD", "") == "1"
-CACHE_DIR = os.environ.get("IAZAP_MLX_CACHE") or None
+# Upgrade compatibility; all documented variables now use ZAPIA_.
+for _key, _value in list(os.environ.items()):
+    if _key.startswith("IAZAP_"):
+        os.environ.setdefault(_key.replace("IAZAP_", "ZAPIA_", 1), _value)
+
+HOST = os.environ.get("ZAPIA_MLX_HOST", "127.0.0.1")
+PORT = int(os.environ.get("ZAPIA_MLX_PORT", "8742"))
+MOCK = os.environ.get("ZAPIA_MLX_MOCK", "") == "1"
+AUTOLOAD = os.environ.get("ZAPIA_MLX_AUTOLOAD", "") == "1"
+CACHE_DIR = os.environ.get("ZAPIA_MLX_CACHE") or None
 
 
 class InferenceState:
     def __init__(self) -> None:
         self.lock = threading.RLock()
-        self.model_id = os.environ.get("IAZAP_MLX_MODEL") or default_model_id()
+        self.model_id = os.environ.get("ZAPIA_MLX_MODEL") or default_model_id()
         self.state = "unavailable"  # unavailable | not_loaded | loading | ready | error
         self.last_error: str | None = None
         self.mlx_import_ok = False
@@ -76,7 +81,7 @@ class InferenceState:
             self.last_error = (
                 f"MLX indisponível neste host ({exc}). "
                 "Use macOS Apple Silicon com `pip install -r requirements.txt`, "
-                "ou IAZAP_MLX_MOCK=1 para testar o fio HTTP."
+                "ou ZAPIA_MLX_MOCK=1 para testar o fio HTTP."
             )
 
     def resolve_repo(self) -> str:
@@ -98,7 +103,7 @@ class InferenceState:
             "mlxAvailable": self.mlx_import_ok or MOCK,
             "memoryNote": spec.memory_hint
             if spec
-            else "Escolha um modelo do catálogo IAZAP (7B ou 3B 4-bit).",
+            else "Escolha um modelo do catálogo ZapIA (7B ou 3B 4-bit).",
             "lastError": self.last_error,
             "availableModels": catalog_dicts(),
             "defaultSystemPrompt": DEFAULT_SYSTEM_PROMPT,
@@ -159,13 +164,13 @@ class InferenceState:
                 os.environ.setdefault("HF_HOME", CACHE_DIR)
                 os.environ.setdefault("HUGGINGFACE_HUB_CACHE", os.path.join(CACHE_DIR, "hub"))
 
-            print(f"[iazap-mlx] loading {repo} …", file=sys.stderr, flush=True)
+            print(f"[zapia-mlx] loading {repo} …", file=sys.stderr, flush=True)
             model, tokenizer = load(repo)
             self.model = model
             self.tokenizer = tokenizer
             self.state = "ready"
             self.backend = "mlx"
-            print(f"[iazap-mlx] ready: {repo}", file=sys.stderr, flush=True)
+            print(f"[zapia-mlx] ready: {repo}", file=sys.stderr, flush=True)
         except Exception as exc:  # noqa: BLE001
             self.model = None
             self.tokenizer = None
@@ -175,7 +180,7 @@ class InferenceState:
                 "Baixe no Mac (HF) ou confira disco/RAM. "
                 f"Detalhe: {traceback.format_exc(limit=3)}"
             )
-            print(f"[iazap-mlx] load error: {self.last_error}", file=sys.stderr, flush=True)
+            print(f"[zapia-mlx] load error: {self.last_error}", file=sys.stderr, flush=True)
 
     def generate(
         self,
@@ -231,10 +236,10 @@ STATE = InferenceState()
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "IAZAP-MLX/1.0"
+    server_version = "ZapIA-MLX/1.0"
 
     def log_message(self, fmt: str, *args: Any) -> None:
-        sys.stderr.write("[iazap-mlx] " + (fmt % args) + "\n")
+        sys.stderr.write("[zapia-mlx] " + (fmt % args) + "\n")
 
     def _read_json(self) -> Any:
         length = int(self.headers.get("Content-Length") or "0")
@@ -255,7 +260,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
         if path in ("/health", "/"):
-            self._send(200, {"ok": True, "service": "iazap-mlx"})
+            self._send(200, {"ok": True, "service": "zapia-mlx"})
             return
         if path == "/v1/status":
             self._send(200, STATE.status_dict())
@@ -316,7 +321,7 @@ def main() -> None:
 
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
     print(
-        f"[iazap-mlx] listening http://{HOST}:{PORT} "
+        f"[zapia-mlx] listening http://{HOST}:{PORT} "
         f"backend={STATE.backend} model={STATE.model_id} state={STATE.state}",
         file=sys.stderr,
         flush=True,
@@ -324,7 +329,7 @@ def main() -> None:
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\n[iazap-mlx] shutdown", file=sys.stderr)
+        print("\n[zapia-mlx] shutdown", file=sys.stderr)
 
 
 if __name__ == "__main__":

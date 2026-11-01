@@ -32,7 +32,7 @@ export function defaultSystemPrompt(): string {
 }
 
 /**
- * Placeholder PT-BR engine used when mlx-service is offline / forced via IAZAP_ENGINE=stub.
+ * Placeholder PT-BR engine used when mlx-service is offline / forced via ZAPIA_ENGINE=stub.
  */
 export class StubReplyEngine implements ReplyEngine {
   readonly id = "stub";
@@ -41,7 +41,7 @@ export class StubReplyEngine implements ReplyEngine {
     const preview = truncate(req.latestUserText.trim() || "(vazio)", 72);
     const n = req.turns.length;
     return (
-      `IAZAP (stub PT-BR): recebi “${preview}”. ` +
+      `ZapIA (stub PT-BR): recebi “${preview}”. ` +
       `Usei ${n} msg(ns) de contexto. ` +
       `Inicie mlx-service no Mac para respostas MLX reais.`
     );

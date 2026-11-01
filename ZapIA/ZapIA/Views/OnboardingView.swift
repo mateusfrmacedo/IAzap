@@ -58,7 +58,7 @@ struct OnboardingView: View {
                 .font(.headline)
                 .foregroundStyle(.orange)
             Text(
-                "O IAZAP conecta sua conta via cliente WhatsApp Web não oficial (Baileys). " +
+                "O ZapIA conecta sua conta via cliente WhatsApp Web não oficial (Baileys). " +
                 "Isso pode violar os Termos de Serviço do WhatsApp/Meta e pode resultar em " +
                 "banimento temporário ou permanente da conta, desafios de segurança ou quebra " +
                 "do protocolo sem aviso. Não somos parceiros oficiais da Meta. Uso sob sua " +

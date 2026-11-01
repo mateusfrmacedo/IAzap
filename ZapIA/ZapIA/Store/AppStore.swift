@@ -6,14 +6,14 @@ import Combine
 /// `chats.syncSelection` / `chats.setAutoReply`. Global kill switch mirrored via `pipeline.setEnabled`.
 @MainActor
 final class AppStore: ObservableObject {
-    private static let selectedKey = "iazap.selectedChatIDs"
-    private static let systemPromptKey = "iazap.systemPrompt"
-    private static let contextSizeKey = "iazap.contextSize"
-    private static let autoReplyEnabledKey = "iazap.autoReplyEnabled"
-    private static let debounceKey = "iazap.debounceMs"
-    private static let cooldownKey = "iazap.cooldownMs"
-    private static let modelIdKey = "iazap.modelId"
-    private static let tosAcceptedKey = "iazap.tosRiskAccepted"
+    private static let selectedKey = "zapia.selectedChatIDs"
+    private static let systemPromptKey = "zapia.systemPrompt"
+    private static let contextSizeKey = "zapia.contextSize"
+    private static let autoReplyEnabledKey = "zapia.autoReplyEnabled"
+    private static let debounceKey = "zapia.debounceMs"
+    private static let cooldownKey = "zapia.cooldownMs"
+    private static let modelIdKey = "zapia.modelId"
+    private static let tosAcceptedKey = "zapia.tosRiskAccepted"
 
     static let defaultSystemPromptPT =
         """
@@ -72,6 +72,15 @@ final class AppStore: ObservableObject {
     @Published var pipelineActivities: [PipelineActivity] = []
 
     init() {
+        // Preserve preferences across the bundle/name change, without overwriting new settings.
+        if let legacy = UserDefaults.standard.persistentDomain(forName: "app.iazap.macos") {
+            for (key, value) in legacy where key.hasPrefix("iazap.") {
+                let newKey = key.replacingOccurrences(of: "iazap.", with: "zapia.")
+                if UserDefaults.standard.object(forKey: newKey) == nil {
+                    UserDefaults.standard.set(value, forKey: newKey)
+                }
+            }
+        }
         let saved = UserDefaults.standard.stringArray(forKey: Self.selectedKey) ?? []
         selectedChatIDs = Set(saved)
         autoReplyEnabled = UserDefaults.standard.bool(forKey: Self.autoReplyEnabledKey)

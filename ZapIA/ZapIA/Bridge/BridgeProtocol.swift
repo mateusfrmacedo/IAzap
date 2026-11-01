@@ -3,7 +3,7 @@ import Foundation
 /// Swift mirror of `protocol/types.ts` / PROTOCOL.md (protocolVersion 1, Phase 3–4).
 enum BridgeRPC {
     static let protocolVersion = 1
-    static let clientName = "iazap-macos"
+    static let clientName = "zapia-macos"
 
     enum Method {
         static let sessionHello = "session.hello"

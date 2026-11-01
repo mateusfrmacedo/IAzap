@@ -1,8 +1,8 @@
 {
-  "name": "iazap-bridge",
-  "version": "0.3.0",
+  "name": "zapia-bridge",
+  "version": "0.4.0",
   "private": true,
-  "description": "IAZAP WhatsApp sidecar — Baileys + pipeline + MLX ReplyEngine over Unix socket",
+  "description": "ZapIA WhatsApp sidecar — Baileys + pipeline + MLX ReplyEngine over Unix socket",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "serve": "tsx src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test src/pipeline/*.test.ts",
+    "test": "tsx --test src/pipeline/*.test.ts src/automation/*.test.ts",
     "smoke:pipeline": "tsx scripts/smoke-pipeline.ts"
   },
   "engines": {

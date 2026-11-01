@@ -29,12 +29,12 @@ it("a slow older model configuration cannot overwrite a newer prompt edit", { ti
     res.end(JSON.stringify({ state: "ready", modelId, engineId: `mlx:${modelId}`, mlxAvailable: true }));
   });
   await new Promise<void>(r => mock.listen(0, "127.0.0.1", r));
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "iazap-prompt-sync-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zapia-prompt-sync-"));
   const socketPath = path.join(dir, "rpc.sock");
   const child = spawn(process.execPath, ["--import", "tsx", fileURLToPath(new URL("../index.ts", import.meta.url))], {
-    env: { ...process.env, IAZAP_STUB_WA: "1", IAZAP_ENGINE: "auto", IAZAP_SOCKET: socketPath,
-      IAZAP_TOKEN: "prompt-sync", IAZAP_AUTH: path.join(dir, "auth"), IAZAP_DATA: path.join(dir, "data"),
-      IAZAP_MLX_URL: `http://127.0.0.1:${(mock.address() as net.AddressInfo).port}` },
+    env: { ...process.env, ZAPIA_STUB_WA: "1", ZAPIA_ENGINE: "auto", ZAPIA_SOCKET: socketPath,
+      ZAPIA_TOKEN: "prompt-sync", ZAPIA_AUTH: path.join(dir, "auth"), ZAPIA_DATA: path.join(dir, "data"),
+      ZAPIA_MLX_URL: `http://127.0.0.1:${(mock.address() as net.AddressInfo).port}` },
     stdio: "ignore",
   });
   let socket: net.Socket | undefined;
@@ -76,7 +76,7 @@ it("a slow older model configuration cannot overwrite a newer prompt edit", { ti
       socket!.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n");
     });
   }
-  await call("session.hello", { token: "prompt-sync", protocolVersion: 1, client: "iazap-macos" });
+  await call("session.hello", { token: "prompt-sync", protocolVersion: 1, client: "zapia-macos" });
   const older = call("pipeline.configure", { modelId: "qwen2.5-3b-instruct-4bit", systemPrompt: "Seu nome é Luna." });
   await blocked;
   const prompt = "Seu nome é Mateus.";

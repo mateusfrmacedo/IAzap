@@ -48,6 +48,10 @@ export type RpcHandlerContext = {
 };
 
 export type MethodHandlers = {
+  automationPreview?: (value: unknown) => unknown;
+  automationGet?: () => unknown;
+  automationSave?: (value: unknown) => unknown;
+  broadcastSend?: (params: {numeros: string; mensagem: string; consentimento: boolean}) => Promise<unknown>;
   getStatus: () => SessionStatus;
   listChats: () => Chat[];
   setAutoReply: (params: ChatsSetAutoReplyParams) => { ok: true; chatId: string; enabled: boolean };
@@ -216,6 +220,21 @@ export class RpcServer extends EventEmitter {
     }
 
     switch (method) {
+      case "automation.preview":
+        if (!this.handlers.automationPreview) throw rpcError(-32601, "Unavailable");
+        return this.handlers.automationPreview(params);
+      case "automation.get":
+        if (!this.handlers.automationGet) throw rpcError(-32601, "Unavailable");
+        return this.handlers.automationGet();
+      case "automation.save":
+        if (!this.handlers.automationSave) throw rpcError(-32601, "Unavailable");
+        return this.handlers.automationSave(params);
+      case "broadcast.send": {
+        const p = params as {numeros: string; mensagem: string; consentimento: boolean};
+        if (!p || typeof p.numeros !== 'string' || typeof p.mensagem !== 'string' || typeof p.consentimento !== 'boolean') throw rpcError(-32602, "Invalid params");
+        if (!this.handlers.broadcastSend) throw rpcError(-32601, "Unavailable");
+        return await this.handlers.broadcastSend(p);
+      }
       case "session.status":
         return this.handlers.getStatus();
       case "session.reconnect":

@@ -4,7 +4,7 @@ import Network
 /// Minimal newline-framed Unix domain socket client using Network.framework.
 final class NWUnixConnection: @unchecked Sendable {
     private let connection: NWConnection
-    private let queue = DispatchQueue(label: "iazap.bridge.unix")
+    private let queue = DispatchQueue(label: "zapia.bridge.unix")
     private var buffer = Data()
 
     var onLine: ((Data) -> Void)?

@@ -14,7 +14,7 @@ import { StubReplyEngine, turnsFromStored } from "./replyEngine.js";
 import type { InboundMessage } from "../protocol/types.js";
 
 function tmpDb(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "iazap-pipeline-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zapia-pipeline-"));
   return path.join(dir, "messages.sqlite");
 }
 
@@ -41,7 +41,7 @@ describe("StubReplyEngine", () => {
       contextString: "contato: oi\neu: olá",
       latestUserText: "tudo bem?",
     });
-    assert.match(text, /IAZAP \(stub PT-BR\)/);
+    assert.match(text, /ZapIA \(stub PT-BR\)/);
     assert.match(text, /tudo bem/);
     assert.match(text, /2 msg/);
     assert.match(text, /mlx-service/i);

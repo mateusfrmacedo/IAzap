@@ -1,13 +1,13 @@
 import SwiftUI
 
 @main
-struct IAZAPApp: App {
-    @NSApplicationDelegateAdaptor(IAZAPAppDelegate.self) private var appDelegate
+struct ZapIAApp: App {
+    @NSApplicationDelegateAdaptor(ZapIAAppDelegate.self) private var appDelegate
     @StateObject private var store = AppStore()
     @StateObject private var bridge = BridgeClient()
 
     var body: some Scene {
-        WindowGroup("IAZAP") {
+        WindowGroup("ZapIA") {
             ContentView()
                 .environmentObject(store)
                 .environmentObject(bridge)
@@ -34,7 +34,7 @@ struct IAZAPApp: App {
 }
 
 @MainActor
-final class IAZAPAppDelegate: NSObject, NSApplicationDelegate {
+final class ZapIAAppDelegate: NSObject, NSApplicationDelegate {
     weak var bridge: BridgeClient?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
