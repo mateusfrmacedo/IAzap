@@ -1,8 +1,8 @@
 {
   "name": "zapia-bridge",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
-  "description": "ZapIA WhatsApp sidecar — Baileys + pipeline + MLX ReplyEngine over Unix socket",
+  "description": "ZapIA WhatsApp sidecar \u2014 Baileys + pipeline + MLX ReplyEngine over Unix socket",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

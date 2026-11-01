@@ -6,7 +6,7 @@
 
 **WhatsApp com IA local, menus programados e atendimento humano em um único app para Mac.**
 
-[**Baixar ZapIA 0.4.0 para Mac Apple Silicon (.dmg)**](https://github.com/mateusfrmacedo/ZapIA/releases/download/v0.4.0/ZapIA-apple-silicon.dmg) · [Versões e notas de lançamento](https://github.com/mateusfrmacedo/ZapIA/releases/latest)
+[**Baixar ZapIA 0.4.1 para Mac Apple Silicon (.dmg)**](https://github.com/mateusfrmacedo/ZapIA/releases/download/v0.4.1/ZapIA-apple-silicon.dmg) · [Versões e notas de lançamento](https://github.com/mateusfrmacedo/ZapIA/releases/latest)
 
 Requer macOS 14+ e Apple Silicon (M1 ou superior). Node e bridge já estão incluídos.
 O pacote usa assinatura ad-hoc e não tem notarização Apple.
@@ -176,12 +176,41 @@ ZAPIA_TEST_APPLE=1 ./scripts/smoke-package.sh
 
 ## Prompt e recuperação de conexão
 
-O preset [`prompts/conversa-natural.txt`](prompts/conversa-natural.txt) orienta o
-estilo de conversa: curto, contextual e sem frases de atendimento. Cole-o no campo
-Prompt dos Ajustes e aplique no bridge. Isso é configuração de comportamento,
-não treinamento/fine-tuning dos pesos. O preset foi inspirado em ideias de estilo
-[da reconstrução pública do prompt do Poke](https://gist.github.com/burritosoftware/dcde4ca404c825dced9421840eb8a497),
-sem copiar identidade, ferramentas, integrações ou alegações daquele produto.
+O comportamento de conversa é aplicado pelo bridge em ambos os motores, mesmo
+quando o perfil salvo contém apenas nome e preferências. O perfil continua sendo
+a fonte da identidade; as mensagens do contato não o redefinem. Mensagens
+consecutivas do contato formam um bloco para evitar responder só à última.
+
+O preset [`prompts/conversa-natural.txt`](prompts/conversa-natural.txt) mantém o
+padrão editável sincronizado entre app, bridge e serviço MLX. O Qwen recebe exemplos
+curtos delimitados como exemplos; o Apple recebe orientações por intenção, após
+ensaios locais em que copiava diálogos de exemplo fora de contexto. A limpeza de
+ofertas genéricas preserva quebras de linha e listas. O teto de 192 tokens foi
+mantido: cortar no primeiro parágrafo ou reduzir esse teto não garante concisão e
+pode interromper frases.
+
+As decisões e ressalvas da entrevista autorizada com o Poke estão em
+[`docs/estudo-conversa-poke.md`](docs/estudo-conversa-poke.md). Isso é configuração
+e preparação de contexto, não treinamento dos pesos nem reprodução das capacidades
+do Poke. O modelo recebe texto: não ganha agenda, navegação, acesso a arquivos ou
+memória permanente por causa do prompt. O Qwen 7B continua como padrão; os testes
+locais mostraram respostas mais adequadas nele. O Apple ainda pode soar artificial
+ou confundir referências; as verificações automáticas não substituem revisão das
+saídas. O perfil personalizado salvo é preservado.
+
+Para avaliar conversas sintéticas sem conectar ao WhatsApp:
+
+```bash
+./scripts/build-apple-helper.sh
+ZAPIA_EVAL_MODELS=qwen2.5-7b-instruct-4bit \
+  ZAPIA_EVAL_OUTPUT=docs/conversa-qwen-avaliacao.json \
+  ./bridge/node_modules/.bin/tsx scripts/evaluate-conversation.mts
+# Troque o modelo por apple-intelligence para avaliar o motor nativo.
+```
+
+As saídas reais registradas em `docs/conversa-*-avaliacao.json` permitem revisar
+naturalidade e erros que uma expressão regular pode não detectar. Os exemplos
+comerciais mencionados pelo Poke não são fatos nem ações executadas pelo ZapIA.
 
 O bridge tenta recuperar falhas transitórias do WhatsApp com intervalos progressivos
 (aproximadamente 2 a 30 segundos), preservando o pareamento. Mensagens já registradas

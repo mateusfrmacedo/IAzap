@@ -1,6 +1,6 @@
 import { AppleReplyEngine, APPLE_MODEL, APPLE_MODEL_ID } from "./appleEngine.js";
 import { ManagedReplyEngine, type EngineMode } from "./mlxEngine.js";
-import { preparePersonaRequest, profileNameReply, forbidsEmoji, removeEmoji } from "./persona.js";
+import { preparePersonaRequest, profileNameReply, isProfileFactQuestion, forbidsEmoji, removeEmoji } from "./persona.js";
 import { stripServiceOffers } from "./conversationStyle.js";
 import { defaultModelId } from "./models.js";
 import type { ModelStatus } from "../protocol/types.js";
@@ -47,9 +47,14 @@ export class SelectableReplyEngine implements ReplyEngine {
 
   async generate(request: ReplyRequest): Promise<string> {
     const engine = this.modelId === APPLE_MODEL_ID ? this.apple : this.mlx;
-    const direct = profileNameReply(request);
+    let prepared = preparePersonaRequest(request, this.modelId === APPLE_MODEL_ID ? "apple" : "mlx");
+    const direct = profileNameReply({ ...request, latestUserText: prepared.latestUserText });
     if (direct) return direct;
-    const prepared = preparePersonaRequest(request);
+    // For direct questions about configured identity/preferences, previous model
+    // claims are not a source of truth. Keep the entire current inbound block.
+    if (isProfileFactQuestion(prepared.latestUserText)) prepared = {
+      ...prepared, turns: prepared.turns.slice(-1), contextString: "",
+    };
     const clean = (text: string) => {
       const conversational = stripServiceOffers(text);
       return forbidsEmoji(request.systemPrompt) ? removeEmoji(conversational) : conversational;

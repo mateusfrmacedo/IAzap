@@ -1,0 +1,76 @@
+{
+  "date": "2026-11-01",
+  "synthetic": true,
+  "rows": [
+    {
+      "model": "qwen2.5-7b-instruct-4bit",
+      "scenario": "saudacao",
+      "input": "oi",
+      "reply": "Olá! Tudo bem?",
+      "ms": 6442
+    },
+    {
+      "model": "qwen2.5-7b-instruct-4bit",
+      "scenario": "relato-do-dia",
+      "input": "hoje foi bem corrido",
+      "reply": "poxa, dia daqueles então.",
+      "ms": 3747
+    },
+    {
+      "model": "qwen2.5-7b-instruct-4bit",
+      "scenario": "explicacao",
+      "input": "me explica em duas linhas o que é uma API",
+      "reply": "API é uma abreviação de Application Programming Interface, que é um conjunto de protocolos e normas para allow diferentes software e sistemas interagirem entre si. Ela permite que diferentes programas compartilhem dados e funcionalidades de maneira padronizada.",
+      "ms": 4994
+    },
+    {
+      "model": "qwen2.5-7b-instruct-4bit",
+      "scenario": "simplificar",
+      "input": "não entendi, dá um exemplo mais simples",
+      "reply": "API é como um intermediário que permite que diferentes aplicativos se comuniquem. Por exemplo, quando você usa o Google Maps em um app, a API do Google Maps permite que esse app veja e use as informações do mapa.",
+      "ms": 5052
+    },
+    {
+      "model": "qwen2.5-7b-instruct-4bit",
+      "scenario": "encerramento",
+      "input": "boa, valeu, era só isso",
+      "reply": "valeu!",
+      "ms": 4463
+    },
+    {
+      "model": "qwen2.5-7b-instruct-4bit",
+      "scenario": "sem-agenda",
+      "input": "agenda uma reunião amanhã às 15h com Marcos",
+      "reply": "Desculpa, não consigo criar lembretes por aqui. Você pode anotar na sua agenda?",
+      "ms": 4247
+    },
+    {
+      "model": "qwen2.5-7b-instruct-4bit",
+      "scenario": "contexto-ausente",
+      "input": "qual era o sabor favorito que te falei no começo?",
+      "reply": "não tenho essa informação aqui. qual é?",
+      "ms": 4212
+    },
+    {
+      "model": "qwen2.5-7b-instruct-4bit",
+      "scenario": "bloco-de-pedidos",
+      "input": "e você gosta de quê?",
+      "reply": "Minha cor favorita é azul. Eu gosto de aviões e admiro a Apple.",
+      "ms": 4110
+    },
+    {
+      "model": "qwen2.5-7b-instruct-4bit",
+      "scenario": "correcao-explicita",
+      "input": "era terça, não quarta",
+      "reply": "Isso, terça. Me confundi.",
+      "ms": 3877
+    },
+    {
+      "model": "qwen2.5-7b-instruct-4bit",
+      "scenario": "mudar-assunto",
+      "input": "esquece API, qual sua cor favorita?",
+      "reply": "Minha cor favorita é azul.",
+      "ms": 3824
+    }
+  ]
+}

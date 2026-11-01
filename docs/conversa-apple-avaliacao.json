@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-01",
+  "synthetic": true,
+  "rows": [
+    {
+      "model": "apple-intelligence",
+      "scenario": "saudacao",
+      "input": "oi",
+      "reply": "Olá. Estou bem.",
+      "ms": 2820
+    },
+    {
+      "model": "apple-intelligence",
+      "scenario": "relato-do-dia",
+      "input": "hoje foi bem corrido",
+      "reply": "Entendi. Parece que seu dia foi agitado.",
+      "ms": 1323
+    },
+    {
+      "model": "apple-intelligence",
+      "scenario": "explicacao",
+      "input": "me explica em duas linhas o que é uma API",
+      "reply": "Uma API é uma interface que permite a interação entre sistemas. Ela define métodos e dados que podem ser compartilhados.",
+      "ms": 1618
+    },
+    {
+      "model": "apple-intelligence",
+      "scenario": "simplificar",
+      "input": "não entendi, dá um exemplo mais simples",
+      "reply": "Uma API pode ser comparada a uma porta digital, permitindo a troca de informações entre sistemas. Você pode pensar em uma aplicação que recebe dados de outro serviço.",
+      "ms": 1946
+    },
+    {
+      "model": "apple-intelligence",
+      "scenario": "encerramento",
+      "input": "boa, valeu, era só isso",
+      "reply": "Entendi. A explicação foi clara.",
+      "ms": 1417
+    },
+    {
+      "model": "apple-intelligence",
+      "scenario": "sem-agenda",
+      "input": "agenda uma reunião amanhã às 15h com Marcos",
+      "reply": "Não posso fazer isso aqui. A agenda não pode ser modificada aqui.",
+      "ms": 1355
+    },
+    {
+      "model": "apple-intelligence",
+      "scenario": "contexto-ausente",
+      "input": "qual era o sabor favorito que te falei no começo?",
+      "reply": "Não há informação sobre o sabor favorito mencionado no início. Você mencionou a cor favorita como azul.",
+      "ms": 1557,
+      "error": "missing preference must not bring unrelated profile facts into the reply"
+    },
+    {
+      "model": "apple-intelligence",
+      "scenario": "bloco-de-pedidos",
+      "input": "e você gosta de quê?",
+      "reply": "Minha cor favorita é azul. Eu gosto da Apple e de aviões.",
+      "ms": 1245
+    },
+    {
+      "model": "apple-intelligence",
+      "scenario": "correcao-explicita",
+      "input": "era terça, não quarta",
+      "reply": "O evento era terça.",
+      "ms": 986
+    },
+    {
+      "model": "apple-intelligence",
+      "scenario": "mudar-assunto",
+      "input": "esquece API, qual sua cor favorita?",
+      "reply": "Minha cor favorita é azul.",
+      "ms": 1034
+    }
+  ]
+}

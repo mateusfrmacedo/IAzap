@@ -98,3 +98,25 @@ it("uses the explicit name and enforces no emoji even when the engine returns th
   assert.equal(await engine.generate({ ...request, systemPrompt, latestUserText: "Qual é seu nome?" }), "Mateus.");
   assert.equal(await engine.generate({ ...request, systemPrompt, latestUserText: "Do que você gosta?" }), "Apple e aviões");
 });
+
+it("does not shortcut a name question when another inbound request is still in the same block", async (t) => {
+  const engine = new SelectableReplyEngine({ appleHelperPath: helper(t, { state: "ready", text: "Mateus. Minha cor favorita é azul." }) });
+  await engine.setModelId(APPLE_MODEL_ID);
+  const reply = await engine.generate({ ...request, systemPrompt: "Seu nome é Mateus. Sua cor favorita é azul.",
+    turns: [{ role: "user", text: "qual sua cor favorita?", timestamp: 1 }, { role: "user", text: "qual seu nome?", timestamp: 2 }],
+    latestUserText: "qual seu nome?" });
+  assert.match(reply, /azul/);
+});
+
+it("excludes stale model self-descriptions only for direct profile questions", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zapia-profile-context-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "helper.cjs");
+  fs.writeFileSync(file, `#!${process.execPath}\nlet raw='';process.stdin.on('data',c=>raw+=c);process.stdin.on('end',()=>{const r=JSON.parse(raw);console.log(JSON.stringify({state:'ready',text:r.turns?.map(t=>t.text).join(' | ')}));});\n`, { mode: 0o700 });
+  const engine = new SelectableReplyEngine({ appleHelperPath: file });
+  await engine.setModelId(APPLE_MODEL_ID);
+  const turns = [{ role: "assistant" as const, text: "Gosto de Android.", timestamp: 1 }];
+  const profileRequest = { ...request, systemPrompt: "Seu nome é Mateus. Você gosta da Apple.", turns };
+  assert.equal(await engine.generate({ ...profileRequest, latestUserText: "Você gosta de quê?" }), "Você gosta de quê?");
+  assert.match(await engine.generate({ ...profileRequest, latestUserText: "do que você gosta nesse projeto?" }), /Android/);
+});

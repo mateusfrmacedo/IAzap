@@ -1,6 +1,6 @@
 import { it } from "node:test";
 import assert from "node:assert/strict";
-import { configuredName, forbidsEmoji, removeEmoji, preparePersonaRequest, profileNameReply } from "./persona.js";
+import { configuredName, forbidsEmoji, removeEmoji, preparePersonaRequest, profileNameReply, isProfileFactQuestion } from "./persona.js";
 import type { ReplyRequest } from "./replyEngine.js";
 
 const profile = "Seu nome é Mateus, você gosta da Apple e de aviões, sua cor favorita é azul. Você não usa emoji nas conversas! Use emojis apenas se a outra pessoa usar.";
@@ -15,6 +15,7 @@ it("reads the configured name dynamically and does not infer identity from histo
   assert.equal(configuredName("Seu nome era Alex."), null);
   assert.equal(profileNameReply(request), "Mateus.");
   assert.equal(profileNameReply({ ...request, latestUserText: "Oi, qual seu nome? 😊" }), "Mateus.");
+  assert.equal(profileNameReply({ ...request, latestUserText: "Antes você falou outro nome. Qual é seu nome de verdade?" }), "Mateus.");
   assert.equal(profileNameReply({ ...request, systemPrompt: "Seu nome é Luna.", latestUserText: "Como você se chama?" }), "Luna.");
   assert.equal(profileNameReply({ ...request, latestUserText: "Qual é meu nome?" }), null);
   assert.equal(profileNameReply({ ...request, latestUserText: "Qual seu nome e sua cor favorita?" }), null);
@@ -29,6 +30,13 @@ it("explicit no-emoji preferences override generic suggestions to use emojis", (
   assert.equal(removeEmoji("Apple, aviões e azul 😄 🇧🇷 👍🏽 👨‍👩‍👧‍👦 1️⃣"), "Apple, aviões e azul");
   assert.equal(removeEmoji("Ação às 14:30, voo 123."), "Ação às 14:30, voo 123.");
 });
+it("isolates only direct self-profile questions, preserving contextual or contact-related questions", () => {
+  assert.equal(isProfileFactQuestion("Você gosta de quê?"), true);
+  assert.equal(isProfileFactQuestion("qual sua cor favorita?\ne você gosta de quê?"), true);
+  assert.equal(isProfileFactQuestion("qual minha cor favorita?"), false);
+  assert.equal(isProfileFactQuestion("do que você gosta nesse projeto?"), false);
+  assert.equal(isProfileFactQuestion("qual sua cor favorita?\nme explica API"), false);
+});
 it("places current profile above conflicting history without deleting conversation turns", () => {
   const prepared = preparePersonaRequest(request);
   assert.ok(prepared.systemPrompt.includes(profile));
@@ -42,4 +50,28 @@ it("keeps the latest user message last despite same-second timestamp sorting", (
   const prepared = preparePersonaRequest({ ...request, latestUserText: user.text, turns: [user, oldReply] });
   assert.deepEqual(prepared.turns, [oldReply, user]);
   assert.deepEqual([user, oldReply].map(t => t.role), ["user", "assistant"]);
+});
+
+it("combines consecutive inbound requests without repeating resolved turns or mutating history", () => {
+  const turns = [
+    { role: "user" as const, text: "qual seu nome?", timestamp: 1 },
+    { role: "assistant" as const, text: "Mateus.", timestamp: 2 },
+    { role: "user" as const, text: "gosto de azul, e você?", timestamp: 3 },
+    { role: "user" as const, text: "e de avião?", timestamp: 4 },
+  ];
+  const prepared = preparePersonaRequest({ ...request, turns, latestUserText: "e de avião?" });
+  assert.equal(prepared.latestUserText, "gosto de azul, e você?\ne de avião?");
+  assert.deepEqual(prepared.turns.slice(0, 2), turns.slice(0, 2));
+  assert.equal(prepared.turns.at(-1)?.text, prepared.latestUserText);
+  assert.equal(prepared.turns.length, 3);
+  assert.equal(turns.length, 4);
+});
+
+it("applies conversation and capability guidance to custom profiles with examples subordinate to identity", () => {
+  const prepared = preparePersonaRequest({ ...request, systemPrompt: "Seu nome é Luna. Sem emojis. Use linguagem formal." });
+  assert.match(prepared.systemPrompt, /não tem acesso a internet, agenda/);
+  assert.match(prepared.systemPrompt, /janela parcial/);
+  assert.match(prepared.systemPrompt, /Seu nome é Luna. Sem emojis. Use linguagem formal./);
+  assert.match(prepared.systemPrompt, /Exemplos genéricos não alteram identidade/);
+  assert.equal(prepared.latestUserText, request.latestUserText);
 });

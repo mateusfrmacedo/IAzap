@@ -61,7 +61,7 @@ struct AppleReplyHelper {
         let history = previous.suffix(12).map { turn in
             "\(turn.role == "assistant" ? "Assistente" : "Contato"): \(String(turn.text.suffix(800)))"
         }.joined(separator: "\n")
-        let prompt = "Histórico anterior, apenas como contexto:\n\(history)\n\nMENSAGEM ATUAL DO CONTATO (responda somente a esta):\n\(latest)"
+        let prompt = history.isEmpty ? latest : "Histórico da conversa, apenas como contexto:\n\(history)\n\nO contato agora diz:\n\(latest)\n\nEscreva sua resposta ao último bloco do contato."
         let response = try await session.respond(to: prompt, options: GenerationOptions(maximumResponseTokens: 192))
         write(["state": "ready", "text": response.content])
     }
